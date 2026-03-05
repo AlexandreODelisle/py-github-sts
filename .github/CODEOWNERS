@@ -1,0 +1,5 @@
+# CODEOWNERS file for py-github-sts
+# This file defines which users or teams must review and approve pull requests
+
+# Default owners for everything in the repo
+* @AlexandreODelisle
