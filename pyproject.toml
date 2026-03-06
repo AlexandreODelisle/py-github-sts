@@ -23,9 +23,6 @@ dependencies = [
     "prometheus-client>=0.20.0"
 ]
 
-[project.scripts]
-github-sts = "src.github_sts.main:app"
-
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
