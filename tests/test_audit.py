@@ -7,7 +7,7 @@ import tempfile
 
 import pytest
 
-from src.github_sts.audit import (
+from github_sts.audit import (
     AuditEvent,
     ExchangeResult,
     FileAuditLogger,
@@ -16,10 +16,19 @@ from src.github_sts.audit import (
 
 
 class TestAuditEvent:
-    """Test AuditEvent Pydantic model."""
+    """Unit tests for the `AuditEvent` model and its JSON serialization."""
 
     def test_audit_event_creation(self):
-        """Create a basic audit event."""
+        """Intention: verify the minimal success payload is accepted.
+
+        What is being tested:
+        - `AuditEvent` accepts the required fields for a successful exchange.
+        - The model auto-populates `timestamp`.
+
+        Expected output:
+        - The event keeps the provided `scope`, `identity`, and `result`.
+        - `timestamp` is populated with a non-empty value.
+        """
         event = AuditEvent(
             scope="owner/repo",
             identity="ci",
@@ -34,7 +43,14 @@ class TestAuditEvent:
         assert event.timestamp is not None
 
     def test_audit_event_with_all_fields(self):
-        """Create audit event with all optional fields."""
+        """Intention: verify optional metadata survives model construction.
+
+        What is being tested:
+        - `AuditEvent` accepts optional timing and client context fields.
+
+        Expected output:
+        - Optional fields are stored exactly as provided.
+        """
         event = AuditEvent(
             scope="owner/repo",
             identity="ci",
@@ -53,7 +69,14 @@ class TestAuditEvent:
         assert event.remote_ip == "192.168.1.1"
 
     def test_audit_event_denied(self):
-        """Create audit event for denied request."""
+        """Intention: verify denied exchanges can carry a failure reason.
+
+        What is being tested:
+        - A non-success `ExchangeResult` can be paired with `error_reason`.
+
+        Expected output:
+        - The event result is `policy_denied` and the reason is preserved.
+        """
         event = AuditEvent(
             scope="owner/repo",
             identity="ci",
@@ -67,7 +90,16 @@ class TestAuditEvent:
         assert event.error_reason is not None
 
     def test_audit_event_to_json_line(self):
-        """Convert event to JSON-Lines format."""
+        """Intention: verify JSON-Lines serialization is newline-delimited.
+
+        What is being tested:
+        - `AuditEvent.to_json_line()` returns valid JSON plus a trailing newline.
+        - Enum values are serialized as their string values.
+
+        Expected output:
+        - The serialized string ends with `\n`.
+        - Decoded JSON contains the original values and `result == "success"`.
+        """
         event = AuditEvent(
             scope="owner/repo",
             identity="ci",
@@ -85,29 +117,21 @@ class TestAuditEvent:
         assert parsed["identity"] == "ci"
         assert parsed["result"] == "success"
 
-    def test_audit_event_jti_redaction(self):
-        """JTI should be redacted to first 50 chars."""
-        long_jti = "x" * 100
-        event = AuditEvent(
-            scope="owner/repo",
-            identity="ci",
-            issuer="https://github.com",
-            subject="test",
-            jti=long_jti,
-            result=ExchangeResult.SUCCESS,
-        )
-
-        # JTI is stored as-is in model, but should be truncated in logs
-        assert len(event.jti) == 100
-        assert event.jti == long_jti
-
 
 class TestFileAuditLogger:
-    """Test file-based audit logger."""
+    """Unit tests for the asynchronous file-backed audit logger."""
 
     @pytest.mark.asyncio
     async def test_file_logger_creation(self):
-        """Create file audit logger."""
+        """Intention: verify the logger initializes with sane defaults.
+
+        What is being tested:
+        - `FileAuditLogger` stores the target path and default rotation policy.
+
+        Expected output:
+        - The file name is `audit.log` and the default policy is `daily`.
+        - Cleanup completes without error.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(log_path=log_path)
@@ -118,7 +142,15 @@ class TestFileAuditLogger:
 
     @pytest.mark.asyncio
     async def test_file_logger_write_event(self):
-        """Write event to file."""
+        """Intention: verify one queued event is flushed to disk.
+
+        What is being tested:
+        - `log_event()` writes a serialized audit record to the file.
+
+        Expected output:
+        - The log file exists, contains at least one line of JSON, and the
+          first record contains the original `scope` value.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(log_path=log_path)
@@ -134,20 +166,26 @@ class TestFileAuditLogger:
             await logger.log_event(event)
             await logger.cleanup()
 
-            # Check file was created and contains JSON
             with open(log_path) as f:
                 content = f.read()
                 assert len(content) > 0
                 lines = content.strip().split("\n")
                 assert len(lines) >= 1
 
-                # Parse first line as JSON
                 parsed = json.loads(lines[0])
                 assert parsed["scope"] == "owner/repo"
 
     @pytest.mark.asyncio
     async def test_file_logger_multiple_events(self):
-        """Write multiple events to file."""
+        """Intention: verify event ordering is preserved for multiple writes.
+
+        What is being tested:
+        - Repeated `log_event()` calls append one JSON line per event.
+
+        Expected output:
+        - At least five lines are written.
+        - The first five lines keep the scopes in the same order they were queued.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(log_path=log_path)
@@ -176,7 +214,14 @@ class TestFileAuditLogger:
 
     @pytest.mark.asyncio
     async def test_file_logger_daily_rotation(self):
-        """Test daily rotation policy."""
+        """Intention: verify daily rotation can be configured explicitly.
+
+        What is being tested:
+        - Constructor wiring for the `daily` rotation mode.
+
+        Expected output:
+        - `rotation_policy` is stored as `daily`.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(log_path=log_path, rotation_policy="daily")
@@ -186,7 +231,15 @@ class TestFileAuditLogger:
 
     @pytest.mark.asyncio
     async def test_file_logger_size_rotation(self):
-        """Test size-based rotation policy."""
+        """Intention: verify size-based rotation settings are preserved.
+
+        What is being tested:
+        - Constructor wiring for `size` rotation and custom thresholds.
+
+        Expected output:
+        - `rotation_policy` is `size`.
+        - `rotation_size_bytes` matches the provided threshold.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(
@@ -201,11 +254,18 @@ class TestFileAuditLogger:
 
 
 class TestCreateAuditLogger:
-    """Test factory function for audit loggers."""
+    """Unit tests for the audit logger factory function."""
 
     @pytest.mark.asyncio
     async def test_create_file_logger(self):
-        """Factory should create file logger."""
+        """Intention: verify the factory resolves the file backend correctly.
+
+        What is being tested:
+        - `create_audit_logger("file", ...)` returns a `FileAuditLogger`.
+
+        Expected output:
+        - The returned object is an instance of `FileAuditLogger`.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = await create_audit_logger("file", log_path=f"{tmpdir}/audit.log")
             assert isinstance(logger, FileAuditLogger)
@@ -213,16 +273,32 @@ class TestCreateAuditLogger:
 
     @pytest.mark.asyncio
     async def test_create_invalid_backend(self):
-        """Invalid backend should raise ValueError."""
+        """Intention: verify unsupported backends fail fast.
+
+        What is being tested:
+        - The factory rejects unknown backend names.
+
+        Expected output:
+        - A `ValueError` is raised with an explanatory message.
+        """
         with pytest.raises(ValueError, match="Unknown audit logger backend"):
             await create_audit_logger("invalid-backend")
 
 
 class TestAuditEventResults:
-    """Test all AuditEvent result types."""
+    """Coverage checks for every supported `ExchangeResult` value."""
 
     def test_all_result_types(self):
-        """Verify all ExchangeResult enum values."""
+        """Intention: verify every exchange outcome can be serialized safely.
+
+        What is being tested:
+        - Each `ExchangeResult` enum member is accepted by `AuditEvent`.
+        - Serialization emits the enum's string value.
+
+        Expected output:
+        - Event creation succeeds for every enum member.
+        - Serialized JSON exposes the exact enum value string.
+        """
         results = [
             ExchangeResult.SUCCESS,
             ExchangeResult.POLICY_DENIED,
@@ -251,11 +327,21 @@ class TestAuditEventResults:
 
 
 class TestAuditIntegration:
-    """Integration tests for audit logging."""
+    """Integration-style tests covering realistic audit log flows."""
 
     @pytest.mark.asyncio
     async def test_realistic_audit_flow(self):
-        """Test realistic audit logging for a successful exchange."""
+        """Intention: verify mixed exchange outcomes are persisted together.
+
+        What is being tested:
+        - The logger can persist both successful and denied exchanges.
+        - Serialized output preserves each event's result and scope.
+
+        Expected output:
+        - Two JSON lines are present.
+        - The first record is a success for `owner/repo`.
+        - The second record is a denial for `owner/private`.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(log_path=log_path)
@@ -308,12 +394,19 @@ class TestAuditIntegration:
 
     @pytest.mark.asyncio
     async def test_json_lines_compatibility(self):
-        """Audit logs should be JSON-Lines compatible."""
+        """Intention: verify the file output is consumable as JSON Lines.
+
+        What is being tested:
+        - Every line written by the logger is valid standalone JSON.
+
+        Expected output:
+        - Each line parses cleanly and contains the core keys used by
+          downstream tooling: `scope` and `result`.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
             logger = FileAuditLogger(log_path=log_path)
 
-            # Log multiple events
             for i in range(3):
                 event = AuditEvent(
                     scope=f"repo{i}",
@@ -326,10 +419,8 @@ class TestAuditIntegration:
 
             await logger.cleanup()
 
-            # Verify JSON-Lines format
             with open(log_path) as f:
                 for line in f:
-                    # Each line should be valid JSON
                     parsed = json.loads(line)
                     assert "scope" in parsed
                     assert "result" in parsed

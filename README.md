@@ -329,42 +329,6 @@ docker run -p 9999:8080 \
 
 Service will be available at `http://localhost:9999`
 
-### Using Docker Compose
-
-```bash
-docker compose up
-# github-sts:  http://localhost:8080
-# Prometheus:  http://localhost:9090
-# Grafana:     http://localhost:3000
-```
-
----
-
-## Kubernetes Deployment
-
-### Helm
-
-See [helm/github-sts/README.md](helm/github-sts/README.md) for complete Helm chart documentation.
-
-```bash
-helm install github-sts ./helm/github-sts \
-  --set github.appId="$PYGITHUBSTS_GITHUB_APP_ID" \
-  --set github.appPrivateKey="$PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY"
-```
-
-### Kustomize
-
-See [kustomize/README.md](kustomize/README.md) for complete Kustomize documentation.
-
-```bash
-# Deploy to dev with HTTPRoute
-kubectl apply -k kustomize/overlays/dev-httproute
-
-# Deploy to prod with HTTPRoute
-kubectl apply -k kustomize/overlays/prod-httproute
-```
-
----
 
 ## Development
 

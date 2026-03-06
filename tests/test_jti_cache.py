@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.github_sts.jti_cache import (
+from github_sts.jti_cache import (
     InMemoryJTICache,
     RedisJTICache,
     create_jti_cache,
@@ -16,11 +16,18 @@ from src.github_sts.jti_cache import (
 
 
 class TestInMemoryJTICache:
-    """Test in-memory JTI cache implementation."""
+    """Unit tests for the in-memory replay-prevention cache."""
 
     @pytest.mark.asyncio
     async def test_new_jti_returns_true(self):
-        """New JTI should return True (non-replay)."""
+        """Intention: verify unseen JTIs are accepted.
+
+        What is being tested:
+        - `check_and_store()` stores a fresh identifier.
+
+        Expected output:
+        - The first insertion returns `True`.
+        """
         cache = InMemoryJTICache(ttl_seconds=3600)
         exp = int(time.time()) + 3600
         result = await cache.check_and_store("jti-123", exp)
@@ -29,7 +36,15 @@ class TestInMemoryJTICache:
 
     @pytest.mark.asyncio
     async def test_duplicate_jti_returns_false(self):
-        """Duplicate JTI should return False (replay detected)."""
+        """Intention: verify replay detection blocks token reuse.
+
+        What is being tested:
+        - The same JTI cannot be stored twice before it expires.
+
+        Expected output:
+        - The first call returns `True`.
+        - The second call returns `False`.
+        """
         cache = InMemoryJTICache(ttl_seconds=3600)
         exp = int(time.time()) + 3600
         jti = "jti-replay-test"
@@ -46,7 +61,14 @@ class TestInMemoryJTICache:
 
     @pytest.mark.asyncio
     async def test_different_jtis_both_allowed(self):
-        """Different JTIs should both be allowed."""
+        """Intention: verify uniqueness is tracked per JTI value.
+
+        What is being tested:
+        - Two different JTIs do not interfere with one another.
+
+        Expected output:
+        - Both calls return `True`.
+        """
         cache = InMemoryJTICache(ttl_seconds=3600)
         exp = int(time.time()) + 3600
 
@@ -60,7 +82,14 @@ class TestInMemoryJTICache:
 
     @pytest.mark.asyncio
     async def test_expired_jti_can_be_reused(self):
-        """Expired JTI entries should be removed and can be reused."""
+        """Intention: verify expired entries stop blocking new requests.
+
+        What is being tested:
+        - Opportunistic cleanup removes expired JTIs.
+
+        Expected output:
+        - A JTI is accepted once, expires, then is accepted again.
+        """
         cache = InMemoryJTICache(ttl_seconds=1)  # 1 second TTL
         jti = "jti-expiring"
         now = int(time.time())
@@ -80,7 +109,14 @@ class TestInMemoryJTICache:
 
     @pytest.mark.asyncio
     async def test_concurrent_access(self):
-        """Cache should handle concurrent access safely."""
+        """Intention: verify concurrent callers still admit only one winner.
+
+        What is being tested:
+        - The internal lock prevents races when multiple tasks use the same JTI.
+
+        Expected output:
+        - Exactly one call returns `True` and the others return `False`.
+        """
         cache = InMemoryJTICache(ttl_seconds=3600)
         exp = int(time.time()) + 3600
         jti = "jti-concurrent"
@@ -102,37 +138,31 @@ class TestInMemoryJTICache:
 
     @pytest.mark.asyncio
     async def test_cleanup(self):
-        """Cleanup should complete without error."""
+        """Intention: verify the no-op cleanup path is safe.
+
+        What is being tested:
+        - Calling `cleanup()` on the in-memory cache does not raise.
+
+        Expected output:
+        - The coroutine completes successfully.
+        """
         cache = InMemoryJTICache()
         await cache.cleanup()
         # Should not raise
 
 
 class TestRedisJTICache:
-    """Test Redis JTI cache implementation."""
-
-    @pytest.mark.asyncio
-    async def test_redis_initialization(self):
-        """Redis cache should initialize correctly (skipped without redis package)."""
-        pytest.skip("Redis tests require redis package to be installed")
-
-    @pytest.mark.asyncio
-    async def test_redis_new_jti(self):
-        """New JTI in Redis should return True (skipped without redis package)."""
-        pytest.skip("Redis tests require redis package to be installed")
-
-    @pytest.mark.asyncio
-    async def test_redis_duplicate_jti(self):
-        """Duplicate JTI in Redis should return False (skipped without redis package)."""
-        pytest.skip("Redis tests require redis package to be installed")
-
-    @pytest.mark.asyncio
-    async def test_redis_connection_error(self):
-        """Redis connection errors should raise JTICacheError (skipped without redis package)."""
-        pytest.skip("Redis tests require redis package to be installed")
+    """Targeted tests for Redis cache error handling without Redis dependency."""
 
     def test_redis_missing_import(self):
-        """Missing redis package should raise ImportError."""
+        """Intention: verify Redis support fails clearly when dependency is absent.
+
+        What is being tested:
+        - `RedisJTICache` surfaces a helpful `ImportError` if `redis` cannot be imported.
+
+        Expected output:
+        - Construction raises `ImportError` mentioning the missing package.
+        """
         with patch.dict("sys.modules", {"redis": None}):
             with pytest.raises(ImportError, match="redis package required"):
                 with patch(
@@ -143,46 +173,78 @@ class TestRedisJTICache:
 
 
 class TestCreateJTICache:
-    """Test factory function for creating JTI caches."""
+    """Unit tests for the JTI cache factory."""
 
     @pytest.mark.asyncio
     async def test_create_memory_cache(self):
-        """Factory should create in-memory cache."""
+        """Intention: verify the factory resolves the in-memory backend.
+
+        What is being tested:
+        - `create_jti_cache("memory")` returns the expected class.
+
+        Expected output:
+        - The returned instance is `InMemoryJTICache`.
+        """
         cache = await create_jti_cache("memory")
         assert isinstance(cache, InMemoryJTICache)
         await cache.cleanup()
 
     @pytest.mark.asyncio
-    async def test_create_redis_cache(self):
-        """Factory should create Redis cache (skipped without redis)."""
-        pytest.skip("Redis tests require redis package to be installed")
-
-    @pytest.mark.asyncio
     async def test_create_redis_without_url(self):
-        """Creating Redis cache without URL should raise ValueError."""
+        """Intention: verify Redis configuration is validated early.
+
+        What is being tested:
+        - The factory rejects the Redis backend when `redis_url` is missing.
+
+        Expected output:
+        - A `ValueError` is raised.
+        """
         with pytest.raises(ValueError, match="redis_url required"):
             await create_jti_cache("redis")
 
     @pytest.mark.asyncio
     async def test_create_invalid_backend(self):
-        """Invalid backend should raise ValueError."""
+        """Intention: verify unsupported backend names are rejected.
+
+        What is being tested:
+        - The factory rejects unknown backend identifiers.
+
+        Expected output:
+        - A `ValueError` is raised with a helpful message.
+        """
         with pytest.raises(ValueError, match="Unknown JTI cache backend"):
             await create_jti_cache("invalid-backend")
 
     @pytest.mark.asyncio
     async def test_create_with_custom_ttl(self):
-        """Factory should pass custom TTL to cache."""
+        """Intention: verify factory options propagate to created caches.
+
+        What is being tested:
+        - The custom TTL reaches the in-memory cache constructor.
+
+        Expected output:
+        - The created cache reports the provided `ttl_seconds` value.
+        """
         cache = await create_jti_cache("memory", ttl_seconds=1800)
         assert cache.ttl_seconds == 1800
         await cache.cleanup()
 
 
 class TestJTICacheIntegration:
-    """Integration tests with realistic scenarios."""
+    """Integration-style tests for realistic replay-prevention flows."""
 
     @pytest.mark.asyncio
     async def test_realistic_token_flow(self):
-        """Test realistic token exchange flow with JTI checks."""
+        """Intention: verify replay prevention in a realistic workload scenario.
+
+        What is being tested:
+        - A workflow token can be exchanged once.
+        - Reusing the same token is rejected.
+        - A different workflow run with a new JTI is accepted.
+
+        Expected output:
+        - Results are `True`, then `False`, then `True`.
+        """
         cache = InMemoryJTICache(ttl_seconds=3600)
         now = int(time.time())
 
@@ -211,7 +273,14 @@ class TestJTICacheIntegration:
 
     @pytest.mark.asyncio
     async def test_jti_expiry_cleanup(self):
-        """Test that expired JTIs are cleaned up properly."""
+        """Intention: verify opportunistic cleanup removes expired cache entries.
+
+        What is being tested:
+        - Expired JTIs disappear after a later cache access.
+
+        Expected output:
+        - The internal cache size decreases after expiry and a new insertion.
+        """
         cache = InMemoryJTICache(ttl_seconds=1)
         now = int(time.time())
 
@@ -237,7 +306,14 @@ class TestJTICacheIntegration:
 
     @pytest.mark.asyncio
     async def test_jti_with_missing_exp(self):
-        """JTI without exp claim should still be cached."""
+        """Intention: verify callers without a usable `exp` still get replay protection.
+
+        What is being tested:
+        - The cache falls back to its TTL when `expires_at` is zero.
+
+        Expected output:
+        - The first insertion succeeds and the second is rejected as a replay.
+        """
         cache = InMemoryJTICache(ttl_seconds=3600)
 
         # No exp provided

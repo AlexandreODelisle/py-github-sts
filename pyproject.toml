@@ -23,6 +23,10 @@ dependencies = [
     "prometheus-client>=0.20.0"
 ]
 
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/github_sts"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
