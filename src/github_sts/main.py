@@ -1,0 +1,267 @@
+"""
+github-sts: Security Token Service for GitHub API using OIDC federation.
+"""
+import json
+import logging
+import time
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from prometheus_client import make_asgi_app
+
+from . import metrics
+from .audit import create_audit_logger
+from .config import get_settings
+from .jti_cache import create_jti_cache
+from .routes import exchange, health
+
+
+class JSONFormatter(logging.Formatter):
+    """JSON logging formatter with timestamps."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record as JSON-Lines."""
+        log_data = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+
+        # Add exception info if present
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+
+        # Add extra fields from the record
+        if hasattr(record, "extra"):
+            log_data.update(record.extra)
+
+        return json.dumps(log_data)
+
+
+def configure_json_logging(level: str = "INFO"):
+    """Configure JSON logging for all handlers."""
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, level.upper()))
+
+    # Remove existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Create console handler with JSON formatter
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(JSONFormatter())
+    root_logger.addHandler(console_handler)
+
+
+# Configure JSON logging on startup
+configure_json_logging(level="INFO")
+logger = logging.getLogger(__name__)
+
+# OpenAPI tags metadata for better API documentation
+TAGS_METADATA = [
+    {
+        "name": "exchange",
+        "description": "OIDC token exchange endpoints - Convert OIDC tokens to GitHub installation tokens",
+    },
+    {
+        "name": "health",
+        "description": "Health check endpoints for container orchestration and monitoring",
+    },
+    {
+        "name": "documentation",
+        "description": "API documentation and OpenAPI specification endpoints",
+    },
+]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup ───────────────────────────────────────────────────────────────
+    logger.info("github-sts starting up")
+
+    # Initialize settings and reconfigure logging
+    settings = get_settings()
+    configure_json_logging(level=settings.server.log_level)
+
+    # Log policy resolution configuration
+    base_path = settings.policy.base_path
+    app_names = settings.app_names
+    logger.info(
+        "Policy base_path=%s, configured apps=%s",
+        base_path, app_names,
+    )
+    for name in app_names:
+        logger.info(
+            "  App %r: policy path = <repo>/%s/%s/<identity>.sts.yaml",
+            name, base_path, name,
+        )
+
+    if not settings.oidc.allowed_issuers:
+        logger.warning(
+            "No OIDC allowed_issuers configured — any issuer will be accepted. "
+            "Set oidc.allowed_issuers in config or PYGITHUBSTS_OIDC_ALLOWED_ISSUERS env var."
+        )
+    else:
+        logger.info("OIDC allowed_issuers=%s", settings.oidc.allowed_issuers)
+
+    # Initialize JTI cache for replay prevention
+    try:
+        jti_cache = await create_jti_cache(
+            backend=settings.jti.backend,
+            redis_url=settings.jti.redis_url,
+            ttl_seconds=settings.jti.ttl_seconds,
+        )
+        app.state.jti_cache = jti_cache
+        logger.info("JTI cache initialized: backend=%s", settings.jti.backend)
+    except Exception as exc:
+        logger.error("Failed to initialize JTI cache: %s", exc)
+        raise
+
+    # Initialize audit logger
+    try:
+        audit_logger = await create_audit_logger(
+            "file",
+            log_path=settings.audit.file_path,
+            rotation_policy=settings.audit.rotation_policy,
+            rotation_size_bytes=settings.audit.rotation_size_bytes,
+        )
+        app.state.audit_logger = audit_logger
+        logger.info("Audit logger initialized: file=%s", settings.audit.file_path)
+    except Exception as exc:
+        logger.error("Failed to initialize audit logger: %s", exc)
+        raise
+
+    yield
+
+    # ── Shutdown ──────────────────────────────────────────────────────────────
+    logger.info("github-sts shutting down")
+
+    # Clean up JTI cache
+    if hasattr(app.state, "jti_cache"):
+        try:
+            await app.state.jti_cache.cleanup()
+            logger.info("JTI cache cleaned up")
+        except Exception as exc:
+            logger.error("Error cleaning up JTI cache: %s", exc)
+
+    # Clean up audit logger
+    if hasattr(app.state, "audit_logger"):
+        try:
+            await app.state.audit_logger.cleanup()
+            logger.info("Audit logger cleaned up")
+        except Exception as exc:
+            logger.error("Error cleaning up audit logger: %s", exc)
+
+
+app = FastAPI(
+    title="GitHub Security Token Service (github-sts)",
+    description="A Security Token Service (STS) for the GitHub API using OIDC federation. "
+    "Exchanges workload OIDC tokens for short-lived, scoped GitHub installation tokens. "
+    "Supports any OIDC-compliant issuer (GitHub Actions, GCP, AWS, Kubernetes, Okta, etc.)",
+    version="0.1.0",
+    lifespan=lifespan,
+    openapi_tags=TAGS_METADATA,
+    openapi_url="/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    contact={
+        "name": "GitHub STS",
+        "url": "https://github.com/AlexandreODelisle/github-sts",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+)
+
+# Mount Prometheus metrics endpoint at /metrics
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
+# Include routers
+app.include_router(exchange.router, prefix="/sts", tags=["exchange"])
+app.include_router(health.router, tags=["health"])
+
+
+@app.get(
+    "/openapi-info",
+    tags=["documentation"],
+    summary="Get OpenAPI Schema Information",
+    description="Returns metadata about the OpenAPI specification and available endpoints",
+    response_description="OpenAPI schema information and documentation links",
+)
+async def get_openapi_info():
+    """
+    Get OpenAPI schema information and documentation endpoints.
+
+    Returns details about the API's OpenAPI specification, including:
+    - OpenAPI schema URL
+    - Interactive documentation links (Swagger UI, ReDoc)
+    - Tagged endpoints
+    - Version and contact information
+    """
+    return {
+        "title": app.title,
+        "description": app.description,
+        "version": app.version,
+        "openapi_schema_url": "/openapi.json",
+        "documentation_endpoints": {
+            "swagger_ui": "/docs",
+            "redoc": "/redoc",
+            "openapi_schema": "/openapi.json",
+            "openapi_info": "/openapi-info",
+        },
+        "contact": app.contact,
+        "license": app.license_info,
+        "tags": [
+            {
+                "name": tag["name"],
+                "description": tag.get("description", ""),
+            }
+            for tag in TAGS_METADATA
+        ],
+        "servers": app.servers if app.servers else [
+            {
+                "url": "http://localhost:8080",
+                "description": "Local development server",
+            },
+        ],
+    }
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Track request count, latency, and in-flight requests."""
+    path = request.url.path
+    method = request.method
+
+    # Skip metrics endpoint itself
+    if path == "/metrics":
+        return await call_next(request)
+
+    # Log OpenAPI/documentation requests
+    if path in ["/openapi.json", "/docs", "/redoc", "/openapi-info"]:
+        logger.debug(f"OpenAPI request: {method} {path}")
+
+    metrics.IN_FLIGHT.inc()
+    start = time.time()
+    try:
+        response = await call_next(request)
+        status = str(response.status_code)
+        metrics.REQUEST_COUNT.labels(method=method, path=path, status=status).inc()
+        return response
+    except Exception as exc:
+        metrics.REQUEST_COUNT.labels(method=method, path=path, status="500").inc()
+        raise exc
+    finally:
+        metrics.REQUEST_LATENCY.labels(method=method, path=path).observe(time.time() - start)
+        metrics.IN_FLIGHT.dec()
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={"error": "internal server error"})
