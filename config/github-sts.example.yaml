@@ -1,0 +1,63 @@
+# github-sts configuration
+# ========================
+# This file can be mounted as a Kubernetes ConfigMap.
+# Set PYGITHUBSTS_CONFIG_PATH to point to this file.
+#
+# All values can be overridden by environment variables with the
+# PYGITHUBSTS_ prefix (e.g., PYGITHUBSTS_SERVER_LOG_LEVEL=DEBUG).
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  log_level: "INFO"        # DEBUG | INFO | WARNING | ERROR
+
+# Policy resolution
+policy:
+  backend: "github"         # github | database
+  base_path: ".github/sts"  # Base path in repos for trust policies
+  cache_ttl_seconds: 60     # 0 = disable caching
+
+# GitHub Apps — define one or more apps
+# Each app has its own credentials and maps to a policy subdirectory:
+#   {base_path}/{app_name}/{identity}.sts.yaml
+apps:
+  default:
+    app_id: 123456
+    # Provide the private key inline …
+    private_key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      ...
+      -----END RSA PRIVATE KEY-----
+    # … or as a file path (private_key takes precedence)
+    # private_key_path: "/etc/github-sts/keys/default.pem"
+
+  # Example: add more apps
+  # deploy-bot:
+  #   app_id: 654321
+  #   private_key_path: "/etc/github-sts/keys/deploy-bot.pem"
+
+# OIDC token validation
+oidc:
+  allowed_issuers:           # Empty list = allow any issuer (logs warning)
+    - "https://token.actions.githubusercontent.com"       # GitHub Actions
+    # - "https://accounts.google.com"                     # Google
+    # - "https://login.microsoftonline.com/{tenant}/v2.0" # Azure AD
+    # - "https://{domain}/realms/{realm}"                 # Keycloak
+    # - "https://{org}.okta.com"                          # Okta
+
+# JTI replay prevention
+jti:
+  backend: "memory"          # memory | redis
+  redis_url: ""              # Required when backend = redis
+  ttl_seconds: 3600          # How long to remember consumed JTIs
+
+# Audit logging
+audit:
+  file_path: "./audit.log"
+  rotation_policy: "daily"   # daily | size
+  rotation_size_bytes: 104857600  # 100 MB (used when rotation_policy = size)
+
+# Prometheus metrics
+metrics:
+  enabled: true
+  prefix: "pygithubsts"
