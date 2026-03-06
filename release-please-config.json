@@ -16,6 +16,16 @@
         "src/github_sts/__init__.py",
         "Dockerfile"
       ]
+    },
+    "charts/github-sts": {
+      "release-type": "helm",
+      "component": "github-sts-chart",
+      "include-component-in-tag": true,
+      "changelog-type": "github",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "draft": false,
+      "prerelease": false
     }
-}
+  }
 }
