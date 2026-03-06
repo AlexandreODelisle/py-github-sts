@@ -1,0 +1,173 @@
+# Default values for github-sts Helm chart
+
+# Image configuration
+image:
+  registry: harbor.adelisle.com
+  repository: docker-rc/github-sts
+  tag: "develop"  # Defaults to Chart.appVersion when empty
+  pullPolicy: Always
+
+# ImagePullSecrets for private registries (optional)
+imagePullSecrets:
+- name: regpull1
+
+# Replicas count
+replicaCount: 2
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+
+# Ingress configuration (optional) - traditional Ingress API
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: github-sts.adelisle.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: github-sts-tls
+    #   hosts:
+    #     - github-sts.example.com
+
+# HTTPRoute configuration (optional) - Gateway API
+httproute:
+  enabled: false
+  annotations: {}
+  gatewayRefs:
+    - name: cilium-gateway
+      namespace: kube-system
+      sectionName: "https"
+  hostnames:
+    - github-sts.adelisle.com
+  # Rules are auto-generated to route / to the service
+  # Customize port if needed
+  port: 8080
+
+# Resources configuration
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Probe configuration
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Logging configuration
+logging:
+  level: "INFO"
+
+# Policy configuration
+policy:
+  backend: "github"
+  basePath: ".github/sts"
+  cacheTtlSeconds: 60
+
+# OIDC configuration
+oidc:
+  allowedIssuers:
+    - "https://token.actions.githubusercontent.com"       # GitHub Actions
+    # - "https://accounts.google.com"                     # Google
+    # - "https://login.microsoftonline.com/{tenant}/v2.0" # Azure AD
+    # - "https://{domain}/realms/{realm}"                 # Keycloak
+    # - "https://{org}.okta.com"                          # Okta
+
+# JTI replay prevention
+jti:
+  backend: "memory"    # memory or redis
+  redisUrl: ""         # Required if backend=redis
+  ttlSeconds: 3600
+
+# Audit logging
+audit:
+  filePath: "/tmp/audit.log"
+  rotationPolicy: "daily"
+  rotationSizeBytes: 104857600  # 100MB
+
+# Metrics configuration
+metrics:
+  enabled: true
+  prefix: "pygithubsts"
+
+# GitHub App credentials (required)
+# These should be provided via Vault integration or --set at install time
+github:
+  appId: ""
+  appPrivateKey: ""
+  appName: "default"    # Name used in policy path resolution
+  
+  # Alternative: use existing secret
+  # existingSecret: "github-sts-credentials"
+  # secretAppIdKey: "github-app-id"
+  # secretPrivateKeyKey: "github-app-private-key"
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity:
+  # Pod anti-affinity to spread replicas across nodes
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - github-sts
+          topologyKey: kubernetes.io/hostname

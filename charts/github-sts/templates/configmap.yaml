@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "github-sts.fullname" . }}-config
+  labels:
+    {{- include "github-sts.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: {{ .Values.service.targetPort }}
+      log_level: {{ .Values.logging.level | quote }}
+
+    policy:
+      backend: {{ .Values.policy.backend | quote }}
+      base_path: {{ .Values.policy.basePath | quote }}
+      cache_ttl_seconds: {{ .Values.policy.cacheTtlSeconds }}
+
+    oidc:
+      {{- if .Values.oidc.allowedIssuers }}
+      allowed_issuers:
+      {{- range .Values.oidc.allowedIssuers }}
+        - {{ . | quote }}
+      {{- end }}
+      {{- else }}
+      allowed_issuers: []
+      {{- end }}
+
+    jti:
+      backend: {{ .Values.jti.backend | quote }}
+      {{- if .Values.jti.redisUrl }}
+      redis_url: {{ .Values.jti.redisUrl | quote }}
+      {{- end }}
+      ttl_seconds: {{ .Values.jti.ttlSeconds }}
+
+    audit:
+      file_path: {{ .Values.audit.filePath | quote }}
+      rotation_policy: {{ .Values.audit.rotationPolicy | quote }}
+      rotation_size_bytes: {{ .Values.audit.rotationSizeBytes | int }}
+
+    metrics:
+      enabled: {{ .Values.metrics.enabled }}
+      prefix: {{ .Values.metrics.prefix | quote }}
