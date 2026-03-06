@@ -62,6 +62,7 @@ logger = logging.getLogger(__name__)
 
 class ServerConfig(BaseModel):
     """Server settings."""
+
     host: str = "0.0.0.0"
     port: int = 8080
     log_level: str = "INFO"
@@ -69,9 +70,10 @@ class ServerConfig(BaseModel):
 
 class PolicyConfig(BaseModel):
     """Policy resolution settings."""
-    backend: str = "github"           # "github" (more backends later)
-    base_path: str = ".github/sts"    # Base path in repo for policy files
-    cache_ttl_seconds: int = 60       # 0 = disable cache
+
+    backend: str = "github"  # "github" (more backends later)
+    base_path: str = ".github/sts"  # Base path in repo for policy files
+    cache_ttl_seconds: int = 60  # 0 = disable cache
 
 
 class AppConfig(BaseModel):
@@ -81,8 +83,9 @@ class AppConfig(BaseModel):
     The app name (dict key) is used in the policy path:
       {policy.base_path}/{app_name}/{identity}.sts.yaml
     """
+
     app_id: int
-    private_key: str | None = None       # PEM contents directly
+    private_key: str | None = None  # PEM contents directly
     private_key_path: str | None = None  # Path to PEM file
 
     @model_validator(mode="after")
@@ -112,6 +115,7 @@ class AppConfig(BaseModel):
 
 class OIDCConfig(BaseModel):
     """OIDC validation settings."""
+
     allowed_issuers: list[str] = []  # Empty = allow any issuer
 
     @model_validator(mode="before")
@@ -125,20 +129,23 @@ class OIDCConfig(BaseModel):
 
 class JTIConfig(BaseModel):
     """JTI replay prevention settings."""
-    backend: str = "memory"          # "memory" or "redis"
+
+    backend: str = "memory"  # "memory" or "redis"
     redis_url: str | None = None  # Required if backend=redis
-    ttl_seconds: int = 3600          # Match token lifetime
+    ttl_seconds: int = 3600  # Match token lifetime
 
 
 class AuditConfig(BaseModel):
     """Audit logging settings."""
+
     file_path: str = "./audit.log"
-    rotation_policy: str = "daily"   # "daily" or "size"
+    rotation_policy: str = "daily"  # "daily" or "size"
     rotation_size_bytes: int = 100 * 1024 * 1024  # 100MB
 
 
 class MetricsConfig(BaseModel):
     """Prometheus metrics settings."""
+
     enabled: bool = True
     prefix: str = "pygithubsts"
 
@@ -152,6 +159,7 @@ class Settings(BaseModel):
 
     Supports YAML file loading and env var overrides.
     """
+
     server: ServerConfig = ServerConfig()
     policy: PolicyConfig = PolicyConfig()
     apps: dict[str, AppConfig] = {}
@@ -176,8 +184,7 @@ class Settings(BaseModel):
         if app_name not in self.apps:
             available = ", ".join(self.apps.keys()) or "(none)"
             raise KeyError(
-                f"GitHub App {app_name!r} not configured. "
-                f"Available apps: {available}"
+                f"GitHub App {app_name!r} not configured. Available apps: {available}"
             )
         return self.apps[app_name]
 
@@ -211,7 +218,9 @@ def _load_yaml_config(config_path: str) -> dict:
     if data is None:
         return {}
     if not isinstance(data, dict):
-        raise ValueError(f"Config file must be a YAML mapping, got {type(data).__name__}")
+        raise ValueError(
+            f"Config file must be a YAML mapping, got {type(data).__name__}"
+        )
 
     return data
 

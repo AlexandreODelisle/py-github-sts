@@ -9,6 +9,7 @@ Supports any OIDC-compliant issuer:
 
 Fetches JWKS from the issuer's discovery document and caches it.
 """
+
 import logging
 import time
 from typing import Any
@@ -63,7 +64,9 @@ async def validate_oidc_token(
         unverified = jwt.get_unverified_claims(token)
         unverified_header = jwt.get_unverified_header(token)
     except JWTError as exc:
-        metrics.OIDC_VALIDATION_ERRORS.labels(issuer="unknown", reason="malformed").inc()
+        metrics.OIDC_VALIDATION_ERRORS.labels(
+            issuer="unknown", reason="malformed"
+        ).inc()
         raise ValueError(f"Malformed JWT: {exc}") from exc
 
     issuer = unverified.get("iss", "")
@@ -74,14 +77,18 @@ async def validate_oidc_token(
             issuer,
         )
     elif issuer not in allowed_issuers:
-        metrics.OIDC_VALIDATION_ERRORS.labels(issuer=issuer, reason="issuer_not_allowed").inc()
+        metrics.OIDC_VALIDATION_ERRORS.labels(
+            issuer=issuer, reason="issuer_not_allowed"
+        ).inc()
         raise ValueError(f"Issuer {issuer!r} is not in the allowed list")
 
     # Fetch JWKS and validate
     try:
         jwks = await _get_jwks(issuer)
     except Exception as exc:
-        metrics.OIDC_VALIDATION_ERRORS.labels(issuer=issuer, reason="jwks_fetch_failed").inc()
+        metrics.OIDC_VALIDATION_ERRORS.labels(
+            issuer=issuer, reason="jwks_fetch_failed"
+        ).inc()
         raise ValueError(f"Could not fetch JWKS for issuer {issuer!r}: {exc}") from exc
 
     options = {
@@ -99,8 +106,11 @@ async def validate_oidc_token(
             audience=expected_audience,
             options=options,
         )
-        logger.debug("OIDC token validated for sub=%s iss=%s",
-                     claims.get("sub"), claims.get("iss"))
+        logger.debug(
+            "OIDC token validated for sub=%s iss=%s",
+            claims.get("sub"),
+            claims.get("iss"),
+        )
         return claims
 
     except ExpiredSignatureError as err:

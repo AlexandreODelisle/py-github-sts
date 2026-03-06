@@ -6,6 +6,7 @@ with only the permissions defined in the trust policy.
 
 Supports multiple GitHub Apps — each identified by name in the config.
 """
+
 import logging
 import time
 from datetime import datetime
@@ -41,8 +42,8 @@ class GitHubAppTokenProvider:
         """Generate a signed JWT to authenticate as the GitHub App itself."""
         now = int(time.time())
         payload = {
-            "iat": now - 60,        # issued 60s ago (clock skew)
-            "exp": now + 600,       # valid for 10 minutes
+            "iat": now - 60,  # issued 60s ago (clock skew)
+            "exp": now + 600,  # valid for 10 minutes
             "iss": str(self._app_config.app_id),
         }
         return pyjwt.encode(
@@ -80,13 +81,19 @@ class GitHubAppTokenProvider:
                     if resp.status_code == 200:
                         installation_id = resp.json()["id"]
                         _installation_id_cache[id_cache_key] = installation_id
-                        metrics.GITHUB_API_CALLS.labels(endpoint="get_installation", result="ok").inc()
+                        metrics.GITHUB_API_CALLS.labels(
+                            endpoint="get_installation", result="ok"
+                        ).inc()
                         return installation_id
                 except httpx.HTTPError:
                     continue
 
-        metrics.GITHUB_API_CALLS.labels(endpoint="get_installation", result="not_found").inc()
-        raise ValueError(f"GitHub App {self._app_name!r} not installed for scope {scope!r}")
+        metrics.GITHUB_API_CALLS.labels(
+            endpoint="get_installation", result="not_found"
+        ).inc()
+        raise ValueError(
+            f"GitHub App {self._app_name!r} not installed for scope {scope!r}"
+        )
 
     async def get_installation_token(
         self,
@@ -135,20 +142,22 @@ class GitHubAppTokenProvider:
         data = resp.json()
         token = data["token"]
         # expires_at is ISO8601, parse to epoch
-        expires_dt = datetime.fromisoformat(
-            data["expires_at"].replace("Z", "+00:00")
-        )
+        expires_dt = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
         expires_epoch = expires_dt.timestamp()
 
         _installation_token_cache[cache_key] = (token, expires_epoch)
 
         perm_str = ",".join(f"{k}:{v}" for k, v in (permissions or {}).items())
         metrics.GITHUB_TOKEN_ISSUED.labels(scope=scope, permissions=perm_str).inc()
-        metrics.GITHUB_API_CALLS.labels(endpoint="create_installation_token", result="ok").inc()
+        metrics.GITHUB_API_CALLS.labels(
+            endpoint="create_installation_token", result="ok"
+        ).inc()
 
         logger.info(
             "Issued GitHub token: app=%s scope=%s permissions=%s",
-            self._app_name, scope, perm_str,
+            self._app_name,
+            scope,
+            perm_str,
         )
         return token
 

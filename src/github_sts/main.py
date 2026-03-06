@@ -1,6 +1,7 @@
 """
 github-sts: Security Token Service for GitHub API using OIDC federation.
 """
+
 import json
 import logging
 import time
@@ -91,12 +92,15 @@ async def lifespan(app: FastAPI):
     app_names = settings.app_names
     logger.info(
         "Policy base_path=%s, configured apps=%s",
-        base_path, app_names,
+        base_path,
+        app_names,
     )
     for name in app_names:
         logger.info(
             "  App %r: policy path = <repo>/%s/%s/<identity>.sts.yaml",
-            name, base_path, name,
+            name,
+            base_path,
+            name,
         )
 
     if not settings.oidc.allowed_issuers:
@@ -223,7 +227,9 @@ async def get_openapi_info():
             }
             for tag in TAGS_METADATA
         ],
-        "servers": app.servers if app.servers else [
+        "servers": app.servers
+        if app.servers
+        else [
             {
                 "url": "http://localhost:8080",
                 "description": "Local development server",
@@ -257,7 +263,9 @@ async def metrics_middleware(request: Request, call_next):
         metrics.REQUEST_COUNT.labels(method=method, path=path, status="500").inc()
         raise exc
     finally:
-        metrics.REQUEST_LATENCY.labels(method=method, path=path).observe(time.time() - start)
+        metrics.REQUEST_LATENCY.labels(method=method, path=path).observe(
+            time.time() - start
+        )
         metrics.IN_FLIGHT.dec()
 
 

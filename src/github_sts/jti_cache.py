@@ -4,6 +4,7 @@ JTI (JWT ID) cache for replay attack prevention.
 Tokens with the same JTI claim should only be accepted once.
 This module provides interfaces and implementations for tracking seen JTIs.
 """
+
 import asyncio
 import time
 from abc import ABC, abstractmethod
@@ -63,9 +64,7 @@ class InMemoryJTICache(JTICache):
             now = time.time()
 
             # Clean up expired entries (opportunistic cleanup)
-            expired_jtis = [
-                j for j, exp in self._seen_jtis.items() if exp < now
-            ]
+            expired_jtis = [j for j, exp in self._seen_jtis.items() if exp < now]
             for j in expired_jtis:
                 del self._seen_jtis[j]
 
@@ -144,7 +143,7 @@ class RedisJTICache(JTICache):
                 key,
                 "1",
                 nx=True,  # Only set if not exists
-                ex=ttl,   # Expire after ttl seconds
+                ex=ttl,  # Expire after ttl seconds
             )
 
             # result is True if SET succeeded (new JTI)
@@ -197,6 +196,5 @@ async def create_jti_cache(
         return RedisJTICache(redis_url=redis_url, ttl_seconds=ttl_seconds)
     else:
         raise ValueError(
-            f"Unknown JTI cache backend: {backend!r}. "
-            "Valid options: 'memory', 'redis'"
+            f"Unknown JTI cache backend: {backend!r}. Valid options: 'memory', 'redis'"
         )

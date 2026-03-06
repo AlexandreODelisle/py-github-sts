@@ -2,6 +2,7 @@
 Tests for trust policy evaluation.
 Run with: pytest tests/
 """
+
 import pytest
 
 from github_sts.policy import TrustPolicy
@@ -49,8 +50,12 @@ class TestTrustPolicyPatterns:
             subject_pattern=r"[0-9]+",
             permissions={"contents": "read"},
         )
-        assert policy.evaluate({"iss": "https://accounts.google.com", "sub": "1234567890"})
-        assert not policy.evaluate({"iss": "https://accounts.google.com", "sub": "not-a-number"})
+        assert policy.evaluate(
+            {"iss": "https://accounts.google.com", "sub": "1234567890"}
+        )
+        assert not policy.evaluate(
+            {"iss": "https://accounts.google.com", "sub": "not-a-number"}
+        )
 
     def test_claim_pattern_matches(self):
         policy = TrustPolicy(
@@ -59,8 +64,16 @@ class TestTrustPolicyPatterns:
             claim_pattern={"email": r".*@example\.com"},
             permissions={"contents": "read"},
         )
-        good = {"iss": "https://accounts.google.com", "sub": "123", "email": "dev@example.com"}
-        bad  = {"iss": "https://accounts.google.com", "sub": "123", "email": "dev@evil.com"}
+        good = {
+            "iss": "https://accounts.google.com",
+            "sub": "123",
+            "email": "dev@example.com",
+        }
+        bad = {
+            "iss": "https://accounts.google.com",
+            "sub": "123",
+            "email": "dev@evil.com",
+        }
         assert policy.evaluate(good)
         assert not policy.evaluate(bad)
 
@@ -68,11 +81,13 @@ class TestTrustPolicyPatterns:
         policy = TrustPolicy(
             issuer="https://token.actions.githubusercontent.com",
             subject="repo:org/repo:ref:refs/heads/main",
-            subject_pattern=r".*",   # would match anything, but subject wins
+            subject_pattern=r".*",  # would match anything, but subject wins
             permissions={"issues": "write"},
         )
-        claims = {"iss": "https://token.actions.githubusercontent.com",
-                  "sub": "repo:org/repo:ref:refs/heads/develop"}
+        claims = {
+            "iss": "https://token.actions.githubusercontent.com",
+            "sub": "repo:org/repo:ref:refs/heads/develop",
+        }
         assert not policy.evaluate(claims)
 
     def test_workflow_ref_claim_pattern(self):

@@ -12,6 +12,7 @@ Policy file path in repo:
   {base_path}/{app_name}/{identity}.sts.yaml
   e.g. .github/sts/my-app/ci.sts.yaml
 """
+
 import asyncio
 import logging
 import time
@@ -28,6 +29,7 @@ from .policy import TrustPolicy
 logger = logging.getLogger(__name__)
 
 # ── Simple in-memory TTL cache ────────────────────────────────────────────────
+
 
 class _CacheEntry:
     __slots__ = ("expires_at", "policy")
@@ -60,6 +62,7 @@ async def _set_cached(key: str, policy: TrustPolicy | None, ttl: int):
 
 # ── Abstract base ─────────────────────────────────────────────────────────────
 
+
 class PolicyLoader(ABC):
     """Base class for all policy backends."""
 
@@ -78,11 +81,14 @@ class PolicyLoader(ABC):
             return policy
         except (yaml.YAMLError, ValidationError, TypeError) as exc:
             logger.warning("Failed to parse policy from %s: %s", source, exc)
-            metrics.POLICY_LOADS_TOTAL.labels(backend=backend, result="parse_error").inc()
+            metrics.POLICY_LOADS_TOTAL.labels(
+                backend=backend, result="parse_error"
+            ).inc()
             return None
 
 
 # ── GitHub backend ────────────────────────────────────────────────────────────
+
 
 class GitHubPolicyLoader(PolicyLoader):
     """
@@ -141,20 +147,28 @@ class GitHubPolicyLoader(PolicyLoader):
                     },
                 )
                 if resp.status_code == 404:
-                    metrics.POLICY_LOADS_TOTAL.labels(backend="github", result="not_found").inc()
+                    metrics.POLICY_LOADS_TOTAL.labels(
+                        backend="github", result="not_found"
+                    ).inc()
                     return None
                 resp.raise_for_status()
                 return self._parse(resp.text, url, "github")
         except httpx.HTTPError as exc:
             logger.error(
                 "GitHub API error fetching policy %s/%s/%s: %s",
-                scope, app_name, identity, exc,
+                scope,
+                app_name,
+                identity,
+                exc,
             )
-            metrics.POLICY_LOADS_TOTAL.labels(backend="github", result="http_error").inc()
+            metrics.POLICY_LOADS_TOTAL.labels(
+                backend="github", result="http_error"
+            ).inc()
             return None
 
 
 # ── Database backend ──────────────────────────────────────────────────────────
+
 
 class DatabasePolicyLoader(PolicyLoader):
     """
@@ -202,29 +216,43 @@ class DatabasePolicyLoader(PolicyLoader):
     ) -> TrustPolicy | None:
         if self._pool is None:
             logger.error("DatabasePolicyLoader: no db pool configured")
-            metrics.POLICY_LOADS_TOTAL.labels(backend="database", result="no_pool").inc()
+            metrics.POLICY_LOADS_TOTAL.labels(
+                backend="database", result="no_pool"
+            ).inc()
             return None
 
         try:
             row = await self._pool.fetchrow(
                 "SELECT policy FROM trust_policies "
                 "WHERE scope = $1 AND app_name = $2 AND identity = $3 AND enabled = TRUE",
-                scope, app_name, identity,
+                scope,
+                app_name,
+                identity,
             )
             if row is None:
-                metrics.POLICY_LOADS_TOTAL.labels(backend="database", result="not_found").inc()
+                metrics.POLICY_LOADS_TOTAL.labels(
+                    backend="database", result="not_found"
+                ).inc()
                 return None
-            return self._parse(row["policy"], f"db:{scope}/{app_name}/{identity}", "database")
+            return self._parse(
+                row["policy"], f"db:{scope}/{app_name}/{identity}", "database"
+            )
         except Exception as exc:
             logger.error(
                 "DB error loading policy %s/%s/%s: %s",
-                scope, app_name, identity, exc,
+                scope,
+                app_name,
+                identity,
+                exc,
             )
-            metrics.POLICY_LOADS_TOTAL.labels(backend="database", result="db_error").inc()
+            metrics.POLICY_LOADS_TOTAL.labels(
+                backend="database", result="db_error"
+            ).inc()
             return None
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
+
 
 def get_policy_loader(app_token_provider=None, db_pool=None) -> PolicyLoader:
     """Return the configured policy loader."""

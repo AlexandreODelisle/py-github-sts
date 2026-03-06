@@ -8,6 +8,7 @@ Policy is resolved from:
   {base_path}/{app}/{identity}.sts.yaml
   e.g. .github/sts/my-app/ci.sts.yaml
 """
+
 import logging
 import time
 from typing import ClassVar
@@ -28,14 +29,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 security = HTTPBearer()
 
+
 # Response Models for OpenAPI Documentation
 class TokenExchangeResponse(BaseModel):
     """Successful token exchange response."""
+
     token: str = Field(..., description="Short-lived GitHub installation token")
     scope: str = Field(..., description="Target repository or organization scope")
     app: str = Field(..., description="GitHub App name used for this exchange")
     identity: str = Field(..., description="Trust policy identity that was evaluated")
-    permissions: dict[str, str] = Field(..., description="Permissions granted in the token")
+    permissions: dict[str, str] = Field(
+        ..., description="Permissions granted in the token"
+    )
 
     class Config:
         json_schema_extra: ClassVar[dict] = {
@@ -47,13 +52,14 @@ class TokenExchangeResponse(BaseModel):
                 "permissions": {
                     "contents": "read",
                     "pull_requests": "write",
-                }
+                },
             }
         }
 
 
 class ErrorResponse(BaseModel):
     """Error response."""
+
     detail: str = Field(..., description="Error description")
 
 
@@ -206,7 +212,12 @@ async def exchange_token(
         policy_path = f"{settings.policy.base_path}/{app_name}/{identity}.sts.yaml"
         logger.info(
             "Incoming exchange: scope=%s app=%s identity=%s iss=%s sub=%s policy_path=%s",
-            scope, app_name, identity, issuer, subject, policy_path,
+            scope,
+            app_name,
+            identity,
+            issuer,
+            subject,
+            policy_path,
         )
 
         # ── Step 1.5: Check JTI (replay prevention) ───────────────────────────
@@ -221,7 +232,11 @@ async def exchange_token(
                         metrics.JTI_REPLAY_ATTEMPTS.inc()
                         logger.warning(
                             "JTI replay attempt: jti=%s iss=%s sub=%s scope=%s app=%s",
-                            jti, issuer, subject, scope, app_name,
+                            jti,
+                            issuer,
+                            subject,
+                            scope,
+                            app_name,
                         )
                         if audit_logger:
                             await audit_logger.log_event(
@@ -238,7 +253,9 @@ async def exchange_token(
                                     remote_ip=remote_ip,
                                 )
                             )
-                            metrics.AUDIT_EVENTS_LOGGED.labels(result="jti_replay").inc()
+                            metrics.AUDIT_EVENTS_LOGGED.labels(
+                                result="jti_replay"
+                            ).inc()
                         raise HTTPException(
                             status_code=409,
                             detail="OIDC token has already been used (JTI replay)",
@@ -312,7 +329,11 @@ async def exchange_token(
             ).inc()
             logger.warning(
                 "Policy denied: scope=%s app=%s identity=%s iss=%s sub=%s",
-                scope, app_name, identity, issuer, subject,
+                scope,
+                app_name,
+                identity,
+                issuer,
+                subject,
             )
             if audit_logger:
                 await audit_logger.log_event(
@@ -346,11 +367,17 @@ async def exchange_token(
         ).inc()
 
         elapsed = time.time() - start
-        metrics.TOKEN_EXCHANGE_LATENCY.labels(scope=scope, identity=identity).observe(elapsed)
+        metrics.TOKEN_EXCHANGE_LATENCY.labels(scope=scope, identity=identity).observe(
+            elapsed
+        )
 
         logger.info(
             "Token issued: scope=%s app=%s identity=%s permissions=%s latency=%.3fs",
-            scope, app_name, identity, policy.permissions, elapsed,
+            scope,
+            app_name,
+            identity,
+            policy.permissions,
+            elapsed,
         )
 
         if audit_logger:

@@ -1,4 +1,5 @@
 """Health check routes."""
+
 import logging
 from typing import ClassVar
 
@@ -12,26 +13,20 @@ router = APIRouter()
 # Response Models for OpenAPI Documentation
 class HealthResponse(BaseModel):
     """API health status response."""
+
     status: str = Field(..., description="Health status")
 
     class Config:
-        json_schema_extra: ClassVar[dict] = {
-            "example": {
-                "status": "ok"
-            }
-        }
+        json_schema_extra: ClassVar[dict] = {"example": {"status": "ok"}}
 
 
 class ReadinessResponse(BaseModel):
     """API readiness status response."""
+
     ready: bool = Field(..., description="Whether the API is ready to accept requests")
 
     class Config:
-        json_schema_extra: ClassVar[dict] = {
-            "example": {
-                "ready": True
-            }
-        }
+        json_schema_extra: ClassVar[dict] = {"example": {"ready": True}}
 
 
 @router.get(

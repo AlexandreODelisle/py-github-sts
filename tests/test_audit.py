@@ -1,6 +1,7 @@
 """
 Tests for structured audit logging.
 """
+
 import json
 import tempfile
 
@@ -178,10 +179,7 @@ class TestFileAuditLogger:
         """Test daily rotation policy."""
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = f"{tmpdir}/audit.log"
-            logger = FileAuditLogger(
-                log_path=log_path,
-                rotation_policy="daily"
-            )
+            logger = FileAuditLogger(log_path=log_path, rotation_policy="daily")
 
             assert logger.rotation_policy == "daily"
             await logger.cleanup()
@@ -209,10 +207,7 @@ class TestCreateAuditLogger:
     async def test_create_file_logger(self):
         """Factory should create file logger."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            logger = await create_audit_logger(
-                "file",
-                log_path=f"{tmpdir}/audit.log"
-            )
+            logger = await create_audit_logger("file", log_path=f"{tmpdir}/audit.log")
             assert isinstance(logger, FileAuditLogger)
             await logger.cleanup()
 

@@ -1,6 +1,7 @@
 """
 Tests for JTI (JWT ID) replay prevention cache.
 """
+
 import asyncio
 import time
 from unittest.mock import patch
@@ -132,9 +133,12 @@ class TestRedisJTICache:
 
     def test_redis_missing_import(self):
         """Missing redis package should raise ImportError."""
-        with patch.dict('sys.modules', {'redis': None}):
+        with patch.dict("sys.modules", {"redis": None}):
             with pytest.raises(ImportError, match="redis package required"):
-                with patch('builtins.__import__', side_effect=ImportError("No module named 'redis'")):
+                with patch(
+                    "builtins.__import__",
+                    side_effect=ImportError("No module named 'redis'"),
+                ):
                     RedisJTICache(redis_url="redis://localhost:6379/0")
 
 

@@ -5,6 +5,7 @@ Provides compliance-ready audit trails for all token exchange attempts,
 including successes, denials, and errors. Supports multiple backends
 (file-based, database) and includes sensitive data redaction.
 """
+
 import asyncio
 import logging
 from abc import ABC, abstractmethod
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class ExchangeResult(StrEnum):
     """Result of a token exchange attempt."""
+
     SUCCESS = "success"
     POLICY_DENIED = "policy_denied"
     OIDC_INVALID = "oidc_invalid"
@@ -37,6 +39,7 @@ class AuditEvent(BaseModel):
     Includes all relevant information for compliance and security investigations,
     with sensitive data redacted.
     """
+
     # Timestamps
     timestamp: str = Field(
         default_factory=lambda: datetime.now(UTC).isoformat(),
@@ -52,24 +55,19 @@ class AuditEvent(BaseModel):
     subject: str = Field(..., description="OIDC subject (workload identifier)")
 
     # Claim info (first 50 chars, redacted for PII)
-    jti: str | None = Field(
-        None,
-        description="JWT ID claim (hashed/truncated)"
-    )
+    jti: str | None = Field(None, description="JWT ID claim (hashed/truncated)")
 
     # Exchange result
     result: ExchangeResult = Field(..., description="Outcome of the exchange")
 
     # Error details (if applicable)
     error_reason: str | None = Field(
-        None,
-        description="Reason for denial or error (no sensitive data)"
+        None, description="Reason for denial or error (no sensitive data)"
     )
 
     # Performance metrics
     duration_ms: float | None = Field(
-        None,
-        description="Request duration in milliseconds"
+        None, description="Request duration in milliseconds"
     )
 
     # Additional context
@@ -77,10 +75,7 @@ class AuditEvent(BaseModel):
         None,
         description="Client user agent (truncated to 100 chars)",
     )
-    remote_ip: str | None = Field(
-        None,
-        description="Client IP address (if available)"
-    )
+    remote_ip: str | None = Field(None, description="Client IP address (if available)")
 
     model_config = ConfigDict(use_enum_values=True)
 
@@ -151,7 +146,8 @@ class FileAuditLogger(AuditLogger):
 
         logger.info(
             "FileAuditLogger initialized: path=%s rotation=%s",
-            self.log_path, rotation_policy
+            self.log_path,
+            rotation_policy,
         )
 
     async def _ensure_writer_started(self) -> None:

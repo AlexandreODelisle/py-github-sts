@@ -18,6 +18,7 @@ Or with regex patterns:
   permissions:
     contents: read
 """
+
 import logging
 import re
 from typing import Any
@@ -29,19 +30,47 @@ logger = logging.getLogger(__name__)
 # All permissions octo-sts style apps support (subset of GitHub App permissions)
 VALID_PERMISSIONS = {
     # Repository
-    "actions", "checks", "contents", "deployments", "environments",
-    "issues", "packages", "pages", "pull_requests", "repository_projects",
-    "secret_scanning_alerts", "secrets", "security_events", "statuses",
-    "vulnerability_alerts", "workflows",
+    "actions",
+    "checks",
+    "contents",
+    "deployments",
+    "environments",
+    "issues",
+    "packages",
+    "pages",
+    "pull_requests",
+    "repository_projects",
+    "secret_scanning_alerts",
+    "secrets",
+    "security_events",
+    "statuses",
+    "vulnerability_alerts",
+    "workflows",
     # Organisation
-    "members", "organization_administration", "organization_hooks",
-    "organization_packages", "organization_plan", "organization_projects",
-    "organization_secrets", "organization_self_hosted_runners",
-    "organization_user_blocking", "team_discussions",
+    "members",
+    "organization_administration",
+    "organization_hooks",
+    "organization_packages",
+    "organization_plan",
+    "organization_projects",
+    "organization_secrets",
+    "organization_self_hosted_runners",
+    "organization_user_blocking",
+    "team_discussions",
     # Account
-    "blocking", "codespaces_user_secrets", "email", "followers",
-    "gpg_keys", "gists", "git_ssh_keys", "interaction_limits", "notifications",
-    "profile", "ssh_signing_keys", "starring", "watching",
+    "blocking",
+    "codespaces_user_secrets",
+    "email",
+    "followers",
+    "gpg_keys",
+    "gists",
+    "git_ssh_keys",
+    "interaction_limits",
+    "notifications",
+    "profile",
+    "ssh_signing_keys",
+    "starring",
+    "watching",
 }
 
 VALID_PERMISSION_VALUES = {"read", "write", "admin"}
@@ -56,7 +85,7 @@ class TrustPolicy(BaseModel):
 
     # Regex-match fields (used when exact fields absent)
     subject_pattern: str | None = None
-    claim_pattern: dict[str, str] | None = None   # arbitrary claim → regex
+    claim_pattern: dict[str, str] | None = None  # arbitrary claim → regex
 
     # Permissions to grant if policy is satisfied
     permissions: dict[str, str]
@@ -83,20 +112,27 @@ class TrustPolicy(BaseModel):
         """
         # 1. Issuer (always exact)
         if claims.get("iss") != self.issuer:
-            logger.debug("issuer mismatch: expected %s got %s",
-                         self.issuer, claims.get("iss"))
+            logger.debug(
+                "issuer mismatch: expected %s got %s", self.issuer, claims.get("iss")
+            )
             return False
 
         # 2. Subject — exact match takes priority
         if self.subject is not None:
             if claims.get("sub") != self.subject:
-                logger.debug("subject mismatch: expected %s got %s",
-                             self.subject, claims.get("sub"))
+                logger.debug(
+                    "subject mismatch: expected %s got %s",
+                    self.subject,
+                    claims.get("sub"),
+                )
                 return False
         elif self.subject_pattern is not None:
             if not re.fullmatch(self.subject_pattern, claims.get("sub", "")):
-                logger.debug("subject_pattern %r did not match %r",
-                             self.subject_pattern, claims.get("sub"))
+                logger.debug(
+                    "subject_pattern %r did not match %r",
+                    self.subject_pattern,
+                    claims.get("sub"),
+                )
                 return False
 
         # 3. Additional claim patterns
@@ -104,8 +140,12 @@ class TrustPolicy(BaseModel):
             for claim_name, pattern in self.claim_pattern.items():
                 value = str(claims.get(claim_name, ""))
                 if not re.fullmatch(pattern, value):
-                    logger.debug("claim_pattern %r=%r did not match value %r",
-                                 claim_name, pattern, value)
+                    logger.debug(
+                        "claim_pattern %r=%r did not match value %r",
+                        claim_name,
+                        pattern,
+                        value,
+                    )
                     return False
 
         return True

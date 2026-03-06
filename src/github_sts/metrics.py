@@ -1,6 +1,7 @@
 """
 Prometheus metrics for github-sts.
 """
+
 from prometheus_client import Counter, Gauge, Histogram, Info
 
 # ── HTTP metrics ──────────────────────────────────────────────────────────────
