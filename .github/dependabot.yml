@@ -1,0 +1,104 @@
+version: 2
+updates:
+  # ============================================================================
+  # GitHub Actions - CI/CD Workflow Updates
+  # ============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    pull-request-branch-name:
+      separator: "/"
+    labels:
+      - "ci"
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci(actions)"
+      include: "scope"
+    # Intelligent grouping for GitHub Actions
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+      actions-major:
+        update-types:
+          - "major"
+    rebase-strategy: "auto"
+    allow:
+      # Prevent immediate updates after a release
+      # Waiting 3+ days ensures stability before bumping
+      - dependency-type: "all"
+
+  # ============================================================================
+  # Python Dependencies - Production & Development
+  # ============================================================================
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 5
+    pull-request-branch-name:
+      separator: "/"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps(python)"
+      include: "scope"
+    rebase-strategy: "auto"
+    allow:
+      # Only allow patch updates for production
+      # Minor/major updates require explicit review
+      - dependency-type: "all"
+    
+    # Intelligent grouping strategy
+    groups:
+      # Production patches - safe, auto-mergeable
+      production-patch:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+      
+      # Production minor versions - requires testing
+      production-minor:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+      
+      # Production major versions - breaking changes, manual review
+      production-major:
+        dependency-type: "production"
+        update-types:
+          - "major"
+      
+      # Development dependencies - can be more aggressive
+      dev-all:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ============================================================================
+  # Docker - Base Image Updates
+  # ============================================================================
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    rebase-strategy: "auto"
