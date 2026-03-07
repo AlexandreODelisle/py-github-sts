@@ -2,8 +2,18 @@
 name: Release Docker
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g., v1.2.3)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g., v1.2.3)"
+        required: true
+        type: string
 
 permissions: {}
 
@@ -24,18 +34,35 @@ jobs:
     name: Docker
     needs: [ci]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: read
       packages: write
       id-token: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
+      TAG_NAME: ${{ inputs.tag_name || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ env.TAG_NAME }}
           persist-credentials: false
+
+      - name: Compute version
+        id: version
+        run: |
+          TAG="${{ env.TAG_NAME }}"
+          VERSION="${TAG#v}"
+          MAJOR="${VERSION%%.*}"
+          MINOR="${VERSION#*.}"
+          MINOR="${MINOR%%.*}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+          echo "minor=${MAJOR}.${MINOR}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
@@ -53,14 +80,14 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.minor }}
+            type=raw,value=${{ steps.version.outputs.major }}
             type=sha,prefix=sha-
             type=raw,value=latest
 
       - name: Build and push
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198e362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           push: true
@@ -92,9 +119,9 @@ jobs:
           persist-credentials: false
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947e795cb3a0d0f48f1 # v0.32.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.docker.outputs.version }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
