@@ -2,6 +2,7 @@
 github-sts: Security Token Service for GitHub API using OIDC federation.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -135,10 +136,25 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to initialize audit logger: %s", exc)
         raise
 
+    # Start event loop lag monitor
+    async def _monitor_loop_lag():
+        loop = asyncio.get_event_loop()
+        while True:
+            t0 = loop.time()
+            await asyncio.sleep(0.1)
+            lag = loop.time() - t0 - 0.1
+            metrics.EVENT_LOOP_LAG.set(max(0, lag))
+
+    app.state.loop_lag_task = asyncio.create_task(_monitor_loop_lag())
+
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
     logger.info("github-sts shutting down")
+
+    # Cancel event loop lag monitor
+    if hasattr(app.state, "loop_lag_task"):
+        app.state.loop_lag_task.cancel()
 
     # Clean up JTI cache
     if hasattr(app.state, "jti_cache"):
@@ -180,9 +196,13 @@ app = FastAPI(
 
 
 # Prometheus metrics endpoint at /metrics
-@app.get("/metrics", tags=["metrics"], include_in_schema=False)
+@app.get("/metrics", include_in_schema=False)
 async def prometheus_metrics():
-    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # Include routers
