@@ -4,6 +4,7 @@ name: Release Please
 on:
   push:
     branches: [main]
+  workflow_dispatch: {}
 
 permissions: {}
 
@@ -16,12 +17,10 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
-      major: ${{ steps.release.outputs.major }}
-      minor: ${{ steps.release.outputs.minor }}
-      patch: ${{ steps.release.outputs.patch }}
+      docker_release_created: ${{ steps.release.outputs['.--release_created'] }}
+      docker_tag_name: ${{ steps.release.outputs['.--tag_name'] }}
+      helm_release_created: ${{ steps.release.outputs['charts/github-sts--release_created'] }}
+      helm_tag_name: ${{ steps.release.outputs['charts/github-sts--tag_name'] }}
     steps:
       - name: Run Release Please
         id: release
@@ -29,3 +28,30 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  release-docker:
+    name: Release Docker
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.docker_release_created == 'true' }}
+    uses: ./.github/workflows/release-docker.yml
+    with:
+      tag_name: ${{ needs.release-please.outputs.docker_tag_name }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    secrets: inherit
+
+  release-helm:
+    name: Release Helm
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.helm_release_created == 'true' }}
+    uses: ./.github/workflows/release-helm.yml
+    with:
+      tag_name: ${{ needs.release-please.outputs.helm_tag_name }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    secrets: inherit
