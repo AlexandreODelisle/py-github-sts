@@ -1,0 +1,86 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in py-github-sts
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. Please fill in as much detail as possible to help us reproduce and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe what happened and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Provide the steps needed to reproduce the bug.
+      placeholder: |
+        1. Configure '...'
+        2. Run '...'
+        3. Observe error '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include any error messages or stack traces.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version of py-github-sts are you using?
+      placeholder: "e.g. 1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: python_version
+    attributes:
+      label: Python Version
+      description: Which Python version are you running?
+      options:
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - "3.14"
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Any additional environment details (OS, deployment method, etc.).
+      placeholder: |
+        OS: Ubuntu 22.04
+        Deployment: Docker / local
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (logs, screenshots, configuration snippets).
