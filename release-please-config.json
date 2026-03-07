@@ -20,9 +20,10 @@
     },
     "charts/github-sts": {
       "release-type": "helm",
+      "package-name": "github-sts-chart",
       "component": "github-sts-chart",
       "include-component-in-tag": true,
-      "changelog-type": "github",
+      "changelog-type": "default",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "draft": false,
