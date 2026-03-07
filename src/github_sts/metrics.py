@@ -98,6 +98,12 @@ GITHUB_TOKEN_ISSUED = Counter(
     ["scope", "permissions"],
 )
 
+# ── Event loop health ─────────────────────────────────────────────────────────
+EVENT_LOOP_LAG = Gauge(
+    "pygithubsts_event_loop_lag_seconds",
+    "Event loop scheduling delay",
+)
+
 # ── App info ──────────────────────────────────────────────────────────────────
 APP_INFO = Info(
     "pygithubsts_app",

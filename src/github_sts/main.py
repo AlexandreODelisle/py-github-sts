@@ -2,6 +2,7 @@
 github-sts: Security Token Service for GitHub API using OIDC federation.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -10,7 +11,8 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from prometheus_client import make_asgi_app
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 
 from . import metrics
 from .audit import create_audit_logger
@@ -70,10 +72,6 @@ TAGS_METADATA = [
     {
         "name": "health",
         "description": "Health check endpoints for container orchestration and monitoring",
-    },
-    {
-        "name": "documentation",
-        "description": "API documentation and OpenAPI specification endpoints",
     },
 ]
 
@@ -138,10 +136,25 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to initialize audit logger: %s", exc)
         raise
 
+    # Start event loop lag monitor
+    async def _monitor_loop_lag():
+        loop = asyncio.get_event_loop()
+        while True:
+            t0 = loop.time()
+            await asyncio.sleep(0.1)
+            lag = loop.time() - t0 - 0.1
+            metrics.EVENT_LOOP_LAG.set(max(0, lag))
+
+    app.state.loop_lag_task = asyncio.create_task(_monitor_loop_lag())
+
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
     logger.info("github-sts shutting down")
+
+    # Cancel event loop lag monitor
+    if hasattr(app.state, "loop_lag_task"):
+        app.state.loop_lag_task.cancel()
 
     # Clean up JTI cache
     if hasattr(app.state, "jti_cache"):
@@ -170,7 +183,7 @@ app = FastAPI(
     openapi_tags=TAGS_METADATA,
     openapi_url="/openapi.json",
     docs_url="/docs",
-    redoc_url="/redoc",
+    redoc_url=None,
     contact={
         "name": "GitHub STS",
         "url": "https://github.com/AlexandreODelisle/github-sts",
@@ -181,61 +194,20 @@ app = FastAPI(
     },
 )
 
-# Mount Prometheus metrics endpoint at /metrics
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+
+# Prometheus metrics endpoint at /metrics
+@app.get("/metrics", include_in_schema=False)
+async def prometheus_metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+        headers={"Cache-Control": "no-store"},
+    )
+
 
 # Include routers
 app.include_router(exchange.router, prefix="/sts", tags=["exchange"])
 app.include_router(health.router, tags=["health"])
-
-
-@app.get(
-    "/openapi-info",
-    tags=["documentation"],
-    summary="Get OpenAPI Schema Information",
-    description="Returns metadata about the OpenAPI specification and available endpoints",
-    response_description="OpenAPI schema information and documentation links",
-)
-async def get_openapi_info():
-    """
-    Get OpenAPI schema information and documentation endpoints.
-
-    Returns details about the API's OpenAPI specification, including:
-    - OpenAPI schema URL
-    - Interactive documentation links (Swagger UI, ReDoc)
-    - Tagged endpoints
-    - Version and contact information
-    """
-    return {
-        "title": app.title,
-        "description": app.description,
-        "version": app.version,
-        "openapi_schema_url": "/openapi.json",
-        "documentation_endpoints": {
-            "swagger_ui": "/docs",
-            "redoc": "/redoc",
-            "openapi_schema": "/openapi.json",
-            "openapi_info": "/openapi-info",
-        },
-        "contact": app.contact,
-        "license": app.license_info,
-        "tags": [
-            {
-                "name": tag["name"],
-                "description": tag.get("description", ""),
-            }
-            for tag in TAGS_METADATA
-        ],
-        "servers": app.servers
-        if app.servers
-        else [
-            {
-                "url": "http://localhost:8080",
-                "description": "Local development server",
-            },
-        ],
-    }
 
 
 @app.middleware("http")
@@ -247,10 +219,6 @@ async def metrics_middleware(request: Request, call_next):
     # Skip metrics endpoint itself
     if path == "/metrics":
         return await call_next(request)
-
-    # Log OpenAPI/documentation requests
-    if path in ["/openapi.json", "/docs", "/redoc", "/openapi-info"]:
-        logger.debug(f"OpenAPI request: {method} {path}")
 
     metrics.IN_FLIGHT.inc()
     start = time.time()
