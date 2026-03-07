@@ -7,6 +7,8 @@ Expand the name of the chart.
 
 {{/*
 Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
 */}}
 {{- define "github-sts.fullname" -}}
 {{- if .Values.fullnameOverride }}
@@ -38,6 +40,9 @@ helm.sh/chart: {{ include "github-sts.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- with .Values.commonLabels }}
+{{ toYaml . }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -46,5 +51,27 @@ Selector labels
 {{- define "github-sts.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "github-sts.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app: github-sts
+{{- end }}
+
+{{/*
+Create the name of the service account to use.
+*/}}
+{{- define "github-sts.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "github-sts.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the proper image name.
+*/}}
+{{- define "github-sts.image" -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- if .Values.image.registry }}
+{{- printf "%s/%s:%s" .Values.image.registry .Values.image.repository $tag }}
+{{- else }}
+{{- printf "%s:%s" .Values.image.repository $tag }}
+{{- end }}
 {{- end }}

@@ -14,24 +14,29 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "github-sts.selectorLabels" . | nindent 8 }}
+        {{- include "github-sts.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "github-sts.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
       - name: {{ .Chart.Name }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 12 }}
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        image: {{ include "github-sts.image" . | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - name: http
@@ -63,6 +68,9 @@ spec:
               name: {{ include "github-sts.fullname" . }}-credentials
               key: github-app-private-key
         {{- end }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- if .Values.probes.readiness.enabled }}
         readinessProbe:
           httpGet:
@@ -83,20 +91,28 @@ spec:
           timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
           failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
         {{- end }}
+        {{- with .Values.resources }}
         resources:
-          {{- toYaml .Values.resources | nindent 12 }}
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
         volumeMounts:
         - name: tmp
           mountPath: /tmp
         - name: config
           mountPath: /etc/github-sts
           readOnly: true
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
       - name: tmp
         emptyDir: {}
       - name: config
         configMap:
           name: {{ include "github-sts.fullname" . }}-config
+      {{- with .Values.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -107,5 +123,9 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

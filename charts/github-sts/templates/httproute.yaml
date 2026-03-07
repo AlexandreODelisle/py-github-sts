@@ -11,10 +11,14 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- range .Values.httproute.gatewayRefs }}
+    {{- range .Values.httproute.parentRefs }}
     - name: {{ .name }}
-      kind: Gateway
-      group: gateway.networking.k8s.io
+      {{- if .kind }}
+      kind: {{ .kind }}
+      {{- end }}
+      {{- if .group }}
+      group: {{ .group }}
+      {{- end }}
       {{- if .namespace }}
       namespace: {{ .namespace }}
       {{- end }}

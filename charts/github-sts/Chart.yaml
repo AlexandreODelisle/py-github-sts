@@ -9,6 +9,8 @@ keywords:
   - oidc
   - authentication
   - security
-maintainers:
-  - name: Alexandre Delisle
-    email: oss@adelisle.com
+  - sts
+  - token-exchange
+home: https://github.com/AlexandreODelisle/py-github-sts
+sources:
+  - https://github.com/AlexandreODelisle/py-github-sts
