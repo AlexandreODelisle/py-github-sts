@@ -7,15 +7,27 @@
       "package-name": "github-sts",
       "component": "github-sts",
       "include-component-in-tag": false,
-      "changelog-type": "github",
+      "changelog-type": "default",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "draft": false,
       "prerelease": false,
       "extra-files": [
         "src/github_sts/__init__.py",
-        "Dockerfile"
+        "Dockerfile",
+        "charts/github-sts/Chart.yaml"
       ]
+    },
+    "charts/github-sts": {
+      "release-type": "helm",
+      "package-name": "github-sts-chart",
+      "component": "github-sts-chart",
+      "include-component-in-tag": true,
+      "changelog-type": "default",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "draft": false,
+      "prerelease": false
     }
-}
+  }
 }
