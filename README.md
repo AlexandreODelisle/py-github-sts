@@ -329,6 +329,28 @@ docker run -p 9999:8080 \
 
 Service will be available at `http://localhost:9999`
 
+---
+
+## Helm Chart
+
+A Helm chart is available for Kubernetes deployments in [`charts/github-sts`](charts/github-sts).
+
+### Basic Deployment
+
+```bash
+# Create credentials secret
+kubectl create secret generic github-sts-credentials \
+  --from-literal=github-app-id="YOUR_GITHUB_APP_ID" \
+  --from-file=github-app-private-key=/path/to/private_key.pem
+
+# Install
+helm install github-sts ./charts/github-sts \
+  --set github.existingSecret="github-sts-credentials"
+```
+
+See the [chart README](charts/github-sts/README.md) for full configuration options, Ingress/HTTPRoute setup, and more examples.
+
+---
 
 ## Development
 

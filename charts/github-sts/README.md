@@ -11,15 +11,7 @@ A Kubernetes Helm chart for deploying the GitHub Security Token Service (STS).
 
 ### Quick Start
 
-1. **With GitHub App credentials in values:**
-
-```bash
-helm install github-sts ./helm/github-sts \
-  --set github.appId="YOUR_GITHUB_APP_ID" \
-  --set github.appPrivateKey="$(cat /path/to/private_key.pem)"
-```
-
-2. **Using an existing secret:**
+1. **Using an existing secret (recommended):**
 
 First, create the secret:
 ```bash
@@ -30,20 +22,31 @@ kubectl create secret generic github-sts-credentials \
 
 Then install with the existing secret:
 ```bash
-helm install github-sts ./helm/github-sts \
+helm install github-sts . \
   --set github.existingSecret="github-sts-credentials"
 ```
+
+2. **With `--set-file` for the private key:**
+
+```bash
+helm install github-sts . \
+  --set github.appId="YOUR_GITHUB_APP_ID" \
+  --set-file github.appPrivateKey=/path/to/private_key.pem
+```
+
+> **Note:** Avoid passing multi-line PEM keys via `--set` on the command line.
+> Use `--set-file`, an existing secret, or a values file instead to prevent
+> shell history exposure and YAML escaping issues.
 
 3. **Using Vault:**
 
 If you have Vault integration configured:
 ```bash
 export GITHUB_APP_ID=$(vault kv get -field=github_app_id homelab/github-action/octo-sts)
-export GITHUB_APP_PRIVATE_KEY=$(vault kv get -field=github_app_private_key homelab/github-action/octo-sts)
 
-helm install github-sts ./helm/github-sts \
+helm install github-sts . \
   --set github.appId="$GITHUB_APP_ID" \
-  --set github.appPrivateKey="$GITHUB_APP_PRIVATE_KEY"
+  --set-file github.appPrivateKey=/path/to/private_key.pem
 ```
 
 ## Configuration
@@ -52,28 +55,26 @@ Key configuration options (see `values.yaml` for all options):
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `image.repository` | `docker-rc/github-sts` | Docker image repository |
-| `image.tag` | `develop` | Docker image tag |
-| `replicaCount` | `2` | Number of replicas |
+| `image.repository` | `github-sts` | Docker image repository |
+| `image.tag` | `""` | Docker image tag (defaults to Chart.appVersion) |
+| `replicaCount` | `1` | Number of replicas |
 | `service.port` | `8080` | Service port |
-| `resources.requests.cpu` | `100m` | CPU request |
-| `resources.requests.memory` | `128Mi` | Memory request |
-| `resources.limits.cpu` | `500m` | CPU limit |
-| `resources.limits.memory` | `256Mi` | Memory limit |
+| `resources` | `{}` | CPU/memory requests and limits |
 | `autoscaling.enabled` | `false` | Enable HPA |
 | `ingress.enabled` | `false` | Enable Ingress (traditional API) |
 | `httproute.enabled` | `false` | Enable HTTPRoute (Gateway API) |
 | `github.appId` | `""` | GitHub App ID (required) |
 | `github.appPrivateKey` | `""` | GitHub App Private Key (required) |
+| `github.existingSecret` | `""` | Use an existing secret for credentials |
+| `github.appName` | `"default"` | GitHub App name for env-configured app |
 
 ## Ingress & Routing
 
 ### Ingress (Traditional)
 
 ```bash
-helm install github-sts ./helm/github-sts \
-  --set github.appId="$GITHUB_APP_ID" \
-  --set github.appPrivateKey="$GITHUB_APP_PRIVATE_KEY" \
+helm install github-sts . \
+  --set github.existingSecret="github-sts-credentials" \
   --set ingress.enabled=true \
   --set ingress.className="nginx" \
   --set ingress.hosts[0].host="github-sts.example.com"
@@ -84,20 +85,18 @@ helm install github-sts ./helm/github-sts \
 Requires Gateway API CRDs. HTTPRoute is more powerful and flexible than Ingress.
 
 ```bash
-helm install github-sts ./helm/github-sts \
-  --set github.appId="$GITHUB_APP_ID" \
-  --set github.appPrivateKey="$GITHUB_APP_PRIVATE_KEY" \
+helm install github-sts . \
+  --set github.existingSecret="github-sts-credentials" \
   --set httproute.enabled=true \
-  --set httproute.gatewayRefs[0].name="my-gateway" \
+  --set httproute.parentRefs[0].name="my-gateway" \
   --set httproute.hostnames[0]="github-sts.example.com"
 ```
 
 ## Upgrade
 
 ```bash
-helm upgrade github-sts ./helm/github-sts \
-  --set github.appId="$GITHUB_APP_ID" \
-  --set github.appPrivateKey="$GITHUB_APP_PRIVATE_KEY"
+helm upgrade github-sts . \
+  --set github.existingSecret="github-sts-credentials"
 ```
 
 ## Uninstall

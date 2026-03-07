@@ -45,6 +45,8 @@ spec:
         env:
         - name: PYGITHUBSTS_CONFIG_PATH
           value: "/etc/github-sts/config.yaml"
+        - name: PYGITHUBSTS_GITHUB_APP_NAME
+          value: {{ .Values.github.appName | quote }}
         {{- if .Values.github.existingSecret }}
         - name: PYGITHUBSTS_GITHUB_APP_ID
           valueFrom:
@@ -74,7 +76,7 @@ spec:
         {{- if .Values.probes.readiness.enabled }}
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: http
           initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
           periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
