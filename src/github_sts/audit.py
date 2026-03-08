@@ -18,6 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
+# Dedicated audit channel — routed by logging_config.setup_logging()
+audit_channel = logging.getLogger("github_sts.audit")
+
 
 class ExchangeResult(StrEnum):
     """Result of a token exchange attempt."""
@@ -44,6 +47,11 @@ class AuditEvent(BaseModel):
     timestamp: str = Field(
         default_factory=lambda: datetime.now(UTC).isoformat(),
         description="ISO 8601 timestamp of the event",
+    )
+
+    # Trace ID for cross-cutting log correlation
+    trace_id: str | None = Field(
+        None, description="Request trace ID for correlating logs and audit entries"
     )
 
     # Request details
@@ -157,9 +165,15 @@ class FileAuditLogger(AuditLogger):
             self._initialized = True
 
     async def log_event(self, event: AuditEvent) -> None:
-        """Queue event for async writing."""
+        """Queue event for async file writing and emit on the audit channel."""
         await self._ensure_writer_started()
         await self._queue.put(event)
+
+        # Also emit via the structured audit logger (stdout + aggregator)
+        audit_channel.info(
+            event.result,
+            extra=event.model_dump(exclude_none=True),
+        )
 
     async def _ensure_open(self) -> None:
         """Ensure log file is open, rotating if needed."""

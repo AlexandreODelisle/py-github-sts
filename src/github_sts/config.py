@@ -60,12 +60,25 @@ logger = logging.getLogger(__name__)
 # ── Sub-models ────────────────────────────────────────────────────────────────
 
 
+class LoggingConfig(BaseModel):
+    """Multi-channel logging configuration."""
+
+    level: str = "INFO"  # app channel level
+    access_level: str = "INFO"  # access channel level
+    suppress_health_logs: bool = True  # filter probes at INFO
+    audit_file_enabled: bool = True  # write audit to rotating file
+    audit_file_path: str = "/var/log/github-sts/audit.json"
+    audit_file_max_bytes: int = 10_485_760  # 10 MB
+    audit_file_backup_count: int = 5
+
+
 class ServerConfig(BaseModel):
     """Server settings."""
 
     host: str = "0.0.0.0"
     port: int = 8080
-    log_level: str = "INFO"
+    log_level: str = "INFO"  # backward compat — seeds logging.level
+    logging: LoggingConfig = LoggingConfig()
 
 
 class PolicyConfig(BaseModel):
@@ -250,6 +263,23 @@ def _apply_env_overrides(config: dict) -> dict:
         server["port"] = int(v)
     if v := os.environ.get(f"{ENV_PREFIX}SERVER_LOG_LEVEL"):
         server["log_level"] = v
+
+    # ── Logging overrides ─────────────────────────────────────────────
+    logging_cfg = server.setdefault("logging", {})
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_LEVEL"):
+        logging_cfg["level"] = v
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_ACCESS_LEVEL"):
+        logging_cfg["access_level"] = v
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_SUPPRESS_HEALTH_LOGS"):
+        logging_cfg["suppress_health_logs"] = v.lower() in ("true", "1", "yes")
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_AUDIT_FILE_ENABLED"):
+        logging_cfg["audit_file_enabled"] = v.lower() in ("true", "1", "yes")
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_AUDIT_FILE_PATH"):
+        logging_cfg["audit_file_path"] = v
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_AUDIT_FILE_MAX_BYTES"):
+        logging_cfg["audit_file_max_bytes"] = int(v)
+    if v := os.environ.get(f"{ENV_PREFIX}LOGGING_AUDIT_FILE_BACKUP_COUNT"):
+        logging_cfg["audit_file_backup_count"] = int(v)
 
     # ── Policy overrides ──────────────────────────────────────────────────
     policy = config.setdefault("policy", {})
