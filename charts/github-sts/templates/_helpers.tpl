@@ -75,3 +75,23 @@ Return the proper image name.
 {{- printf "%s:%s" .Values.image.repository $tag }}
 {{- end }}
 {{- end }}
+
+{{/*
+Return true if GitHub credentials are configured (either via existingSecret or inline values).
+*/}}
+{{- define "github-sts.hasCredentials" -}}
+{{- if or .Values.github.existingSecret (and .Values.github.appId .Values.github.appPrivateKey) -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/*
+Return the name of the credentials secret.
+*/}}
+{{- define "github-sts.credentialsSecretName" -}}
+{{- if .Values.github.existingSecret -}}
+{{- .Values.github.existingSecret }}
+{{- else -}}
+{{- include "github-sts.fullname" . }}-credentials
+{{- end -}}
+{{- end }}

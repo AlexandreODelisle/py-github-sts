@@ -107,7 +107,7 @@ helm uninstall github-sts
 
 ## Features
 
-- ✅ Multi-replica deployment with pod anti-affinity
+- ✅ Multi-replica deployment support
 - ✅ Health checks (readiness & liveness probes)
 - ✅ Horizontal pod autoscaling
 - ✅ Ingress support (traditional Kubernetes API)

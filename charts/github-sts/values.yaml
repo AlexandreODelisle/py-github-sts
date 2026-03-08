@@ -201,10 +201,18 @@ podMonitor:
   honorLabels: false
 
 # -- GitHub App credentials (required)
-# Provide via --set or use an existing secret
+# Provide credentials via existingSecret or inline appId + appPrivateKey.
+# If neither is set, the chart renders without credential env vars (useful for linting).
 github:
+  # -- GitHub App ID
   appId: ""
+  # -- GitHub App private key (PEM format, multiline)
+  # appPrivateKey: |
+  #   -----BEGIN RSA PRIVATE KEY-----
+  #   <key content>
+  #   -----END RSA PRIVATE KEY-----
   appPrivateKey: ""
+  # -- GitHub App name
   appName: "default"
   # -- Use an existing secret instead of creating one
   existingSecret: ""

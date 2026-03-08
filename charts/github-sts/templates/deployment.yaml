@@ -33,88 +33,77 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-      - name: {{ .Chart.Name }}
-        securityContext:
-          {{- toYaml .Values.securityContext | nindent 12 }}
-        image: {{ include "github-sts.image" . | quote }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        ports:
-        - name: http
-          containerPort: {{ .Values.service.targetPort }}
-          protocol: TCP
-        env:
-        - name: PYGITHUBSTS_CONFIG_PATH
-          value: "/etc/github-sts/config.yaml"
-        - name: PYGITHUBSTS_GITHUB_APP_NAME
-          value: {{ .Values.github.appName | quote }}
-        {{- if .Values.github.existingSecret }}
-        - name: PYGITHUBSTS_GITHUB_APP_ID
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.github.existingSecret }}
-              key: {{ .Values.github.secretAppIdKey | default "github-app-id" }}
-        - name: PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.github.existingSecret }}
-              key: {{ .Values.github.secretPrivateKeyKey | default "github-app-private-key" }}
-        {{- else }}
-        - name: PYGITHUBSTS_GITHUB_APP_ID
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "github-sts.fullname" . }}-credentials
-              key: github-app-id
-        - name: PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "github-sts.fullname" . }}-credentials
-              key: github-app-private-key
-        {{- end }}
-        {{- with .Values.extraEnv }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- if .Values.probes.readiness.enabled }}
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: http
-          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
-          timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
-          failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
-        {{- end }}
-        {{- if .Values.probes.liveness.enabled }}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: http
-          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
-          timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
-          failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
-        {{- end }}
-        {{- with .Values.resources }}
-        resources:
-          {{- toYaml . | nindent 12 }}
-        {{- end }}
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: config
-          mountPath: /etc/github-sts
-          readOnly: true
-        {{- with .Values.extraVolumeMounts }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "github-sts.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: PYGITHUBSTS_CONFIG_PATH
+              value: "/etc/github-sts/config.yaml"
+            - name: PYGITHUBSTS_GITHUB_APP_NAME
+              value: {{ .Values.github.appName | quote }}
+            {{- if include "github-sts.hasCredentials" . }}
+            - name: PYGITHUBSTS_GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "github-sts.credentialsSecretName" . }}
+                  key: {{ .Values.github.secretAppIdKey | default "github-app-id" }}
+            - name: PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "github-sts.credentialsSecretName" . }}
+                  key: {{ .Values.github.secretPrivateKeyKey | default "github-app-private-key" }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: config
+              mountPath: /etc/github-sts
+              readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: config
-        configMap:
-          name: {{ include "github-sts.fullname" . }}-config
-      {{- with .Values.extraVolumes }}
-      {{- toYaml . | nindent 6 }}
-      {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: {{ include "github-sts.fullname" . }}-config
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
