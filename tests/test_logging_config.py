@@ -155,15 +155,11 @@ class TestHealthLogFilter:
 
     def test_passes_health_at_debug(self, health_filter):
         """Intention: verify health probes pass at DEBUG level."""
-        assert (
-            health_filter.filter(self._make_record("/health", logging.DEBUG)) is True
-        )
+        assert health_filter.filter(self._make_record("/health", logging.DEBUG)) is True
 
     def test_passes_exchange_at_info(self, health_filter):
         """Intention: verify non-probe paths are never suppressed."""
-        assert (
-            health_filter.filter(self._make_record("/sts/exchange")) is True
-        )
+        assert health_filter.filter(self._make_record("/sts/exchange")) is True
 
     def test_passes_record_without_path(self, health_filter):
         """Intention: verify records without a path attribute pass through."""

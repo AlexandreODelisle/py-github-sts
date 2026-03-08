@@ -53,9 +53,7 @@ class JSONFormatter(logging.Formatter):
         log_channel = self.CHANNEL_MAP.get(record.name, "app")
 
         log_data: dict = {
-            "timestamp": datetime.fromtimestamp(
-                record.created, tz=UTC
-            ).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "log_channel": log_channel,
             "trace_id": get_trace_id(),
