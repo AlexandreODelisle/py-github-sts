@@ -151,9 +151,7 @@ async def lifespan(app: FastAPI):
     # Start rate limit poller
     if settings.metrics.rate_limit_poll_enabled and settings.apps:
         poller = RateLimitPoller(
-            apps={
-                name: settings.get_app(name) for name in settings.app_names
-            },
+            apps={name: settings.get_app(name) for name in settings.app_names},
             interval_seconds=settings.metrics.rate_limit_poll_interval_seconds,
         )
         await poller.start()
@@ -162,9 +160,7 @@ async def lifespan(app: FastAPI):
     # Start reachability prober
     if settings.metrics.reachability_probe_enabled and settings.apps:
         prober = ReachabilityProber(
-            apps={
-                name: settings.get_app(name) for name in settings.app_names
-            },
+            apps={name: settings.get_app(name) for name in settings.app_names},
             interval_seconds=settings.metrics.reachability_probe_interval_seconds,
         )
         await prober.start()

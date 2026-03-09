@@ -61,35 +61,32 @@ class TestExtractRateLimitHeaders:
         from github_sts import metrics
 
         assert (
-            metrics.GITHUB_RATE_LIMIT_LIMIT.labels(app="default", resource="core")
-            ._value.get()
+            metrics.GITHUB_RATE_LIMIT_LIMIT.labels(
+                app="default", resource="core"
+            )._value.get()
             == 5000.0
         )
         assert (
             metrics.GITHUB_RATE_LIMIT_REMAINING.labels(
                 app="default", resource="core"
-            )
-            ._value.get()
+            )._value.get()
             == 4990.0
         )
         assert (
-            metrics.GITHUB_RATE_LIMIT_USED.labels(app="default", resource="core")
-            ._value.get()
+            metrics.GITHUB_RATE_LIMIT_USED.labels(
+                app="default", resource="core"
+            )._value.get()
             == 10.0
         )
         assert (
             metrics.GITHUB_RATE_LIMIT_RESET_TIMESTAMP.labels(
                 app="default", resource="core"
-            )
-            ._value.get()
+            )._value.get()
             == 1700000000.0
         )
-        pct = (
-            metrics.GITHUB_RATE_LIMIT_REMAINING_PERCENT.labels(
-                app="default", resource="core"
-            )
-            ._value.get()
-        )
+        pct = metrics.GITHUB_RATE_LIMIT_REMAINING_PERCENT.labels(
+            app="default", resource="core"
+        )._value.get()
         assert abs(pct - 99.8) < 0.1
 
     def test_defaults_to_core_resource(self):
@@ -114,8 +111,9 @@ class TestExtractRateLimitHeaders:
         from github_sts import metrics
 
         assert (
-            metrics.GITHUB_RATE_LIMIT_LIMIT.labels(app="my-app", resource="core")
-            ._value.get()
+            metrics.GITHUB_RATE_LIMIT_LIMIT.labels(
+                app="my-app", resource="core"
+            )._value.get()
             == 5000.0
         )
 
@@ -154,21 +152,15 @@ class TestExtractRateLimitHeaders:
 
         from github_sts import metrics
 
-        before = (
-            metrics.GITHUB_RATE_LIMIT_EXCEEDED_TOTAL.labels(
-                app="test-app", resource="core", caller="iss:sub"
-            )
-            ._value.get()
-        )
+        before = metrics.GITHUB_RATE_LIMIT_EXCEEDED_TOTAL.labels(
+            app="test-app", resource="core", caller="iss:sub"
+        )._value.get()
 
         extract_rate_limit_headers(resp, app_name="test-app", caller="iss:sub")
 
-        after = (
-            metrics.GITHUB_RATE_LIMIT_EXCEEDED_TOTAL.labels(
-                app="test-app", resource="core", caller="iss:sub"
-            )
-            ._value.get()
-        )
+        after = metrics.GITHUB_RATE_LIMIT_EXCEEDED_TOTAL.labels(
+            app="test-app", resource="core", caller="iss:sub"
+        )._value.get()
         assert after == before + 1
 
     def test_detects_secondary_rate_limit(self):
@@ -195,27 +187,20 @@ class TestExtractRateLimitHeaders:
 
         from github_sts import metrics
 
-        before = (
-            metrics.GITHUB_SECONDARY_RATE_LIMIT_TOTAL.labels(
-                app="sec-app", caller="iss:sub"
-            )
-            ._value.get()
-        )
+        before = metrics.GITHUB_SECONDARY_RATE_LIMIT_TOTAL.labels(
+            app="sec-app", caller="iss:sub"
+        )._value.get()
 
         extract_rate_limit_headers(resp, app_name="sec-app", caller="iss:sub")
 
-        after = (
-            metrics.GITHUB_SECONDARY_RATE_LIMIT_TOTAL.labels(
-                app="sec-app", caller="iss:sub"
-            )
-            ._value.get()
-        )
+        after = metrics.GITHUB_SECONDARY_RATE_LIMIT_TOTAL.labels(
+            app="sec-app", caller="iss:sub"
+        )._value.get()
         assert after == before + 1
 
-        retry = (
-            metrics.GITHUB_SECONDARY_RATE_LIMIT_RETRY_AFTER.labels(app="sec-app")
-            ._value.get()
-        )
+        retry = metrics.GITHUB_SECONDARY_RATE_LIMIT_RETRY_AFTER.labels(
+            app="sec-app"
+        )._value.get()
         assert retry == 120.0
 
     def test_invalid_header_values_ignored(self):
@@ -245,7 +230,9 @@ class TestRateLimitPoller:
         """Create a mock AppConfig for testing."""
         config = MagicMock()
         config.app_id = 12345
-        config.private_key = "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+        config.private_key = (
+            "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+        )
         return config
 
     @pytest.mark.asyncio
@@ -344,22 +331,22 @@ class TestRateLimitPoller:
 
             # Verify the installation token was used, not an App JWT
             call_kwargs = mock_client.get.call_args
-            assert call_kwargs[1]["headers"]["Authorization"] == "token fake-install-token"
+            assert (
+                call_kwargs[1]["headers"]["Authorization"] == "token fake-install-token"
+            )
 
         from github_sts import metrics
 
         assert (
             metrics.GITHUB_RATE_LIMIT_LIMIT.labels(
                 app="default", resource="core"
-            )
-            ._value.get()
+            )._value.get()
             == 5000.0
         )
         assert (
             metrics.GITHUB_RATE_LIMIT_REMAINING.labels(
                 app="default", resource="search"
-            )
-            ._value.get()
+            )._value.get()
             == 28.0
         )
 
@@ -391,9 +378,7 @@ class TestRateLimitPoller:
             interval_seconds=60,
         )
 
-        with patch(
-            "github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"
-        ):
+        with patch("github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"):
             with patch("httpx.AsyncClient") as mock_client_cls:
                 mock_client = AsyncMock()
                 mock_client.get = AsyncMock(return_value=mock_resp)
@@ -438,9 +423,7 @@ class TestRateLimitPoller:
             interval_seconds=60,
         )
 
-        with patch(
-            "github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"
-        ):
+        with patch("github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"):
             with patch("httpx.AsyncClient") as mock_client_cls:
                 mock_client = AsyncMock()
                 mock_client.post = AsyncMock(return_value=mock_resp)
@@ -465,7 +448,9 @@ class TestReachabilityProber:
         """Create a mock AppConfig for testing."""
         config = MagicMock()
         config.app_id = 12345
-        config.private_key = "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+        config.private_key = (
+            "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+        )
         return config
 
     @pytest.mark.asyncio
@@ -517,9 +502,7 @@ class TestReachabilityProber:
 
         from github_sts import metrics
 
-        assert (
-            metrics.GITHUB_REACHABLE.labels(app="reach-default")._value.get() == 1.0
-        )
+        assert metrics.GITHUB_REACHABLE.labels(app="reach-default")._value.get() == 1.0
 
     @pytest.mark.asyncio
     async def test_probe_timeout_sets_unreachable(self, mock_app_config):
@@ -540,12 +523,9 @@ class TestReachabilityProber:
 
         from github_sts import metrics
 
-        before = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="timeout-app", reason="timeout"
-            )
-            ._value.get()
-        )
+        before = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="timeout-app", reason="timeout"
+        )._value.get()
 
         with patch("github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"):
             with patch("httpx.AsyncClient") as mock_client_cls:
@@ -559,15 +539,10 @@ class TestReachabilityProber:
 
                 await prober._probe_app("timeout-app", mock_app_config)
 
-        assert (
-            metrics.GITHUB_REACHABLE.labels(app="timeout-app")._value.get() == 0.0
-        )
-        after = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="timeout-app", reason="timeout"
-            )
-            ._value.get()
-        )
+        assert metrics.GITHUB_REACHABLE.labels(app="timeout-app")._value.get() == 0.0
+        after = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="timeout-app", reason="timeout"
+        )._value.get()
         assert after == before + 1
 
     @pytest.mark.asyncio
@@ -589,12 +564,9 @@ class TestReachabilityProber:
 
         from github_sts import metrics
 
-        before = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="conn-app", reason="connection_error"
-            )
-            ._value.get()
-        )
+        before = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="conn-app", reason="connection_error"
+        )._value.get()
 
         with patch("github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"):
             with patch("httpx.AsyncClient") as mock_client_cls:
@@ -609,12 +581,9 @@ class TestReachabilityProber:
                 await prober._probe_app("conn-app", mock_app_config)
 
         assert metrics.GITHUB_REACHABLE.labels(app="conn-app")._value.get() == 0.0
-        after = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="conn-app", reason="connection_error"
-            )
-            ._value.get()
-        )
+        after = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="conn-app", reason="connection_error"
+        )._value.get()
         assert after == before + 1
 
     @pytest.mark.asyncio
@@ -638,12 +607,9 @@ class TestReachabilityProber:
 
         from github_sts import metrics
 
-        before = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="5xx-app", reason="http_error"
-            )
-            ._value.get()
-        )
+        before = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="5xx-app", reason="http_error"
+        )._value.get()
 
         with patch("github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"):
             with patch("httpx.AsyncClient") as mock_client_cls:
@@ -656,12 +622,9 @@ class TestReachabilityProber:
                 await prober._probe_app("5xx-app", mock_app_config)
 
         assert metrics.GITHUB_REACHABLE.labels(app="5xx-app")._value.get() == 0.0
-        after = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="5xx-app", reason="http_error"
-            )
-            ._value.get()
-        )
+        after = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="5xx-app", reason="http_error"
+        )._value.get()
         assert after == before + 1
 
     @pytest.mark.asyncio
@@ -685,12 +648,9 @@ class TestReachabilityProber:
 
         from github_sts import metrics
 
-        before = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="auth-app", reason="auth_error"
-            )
-            ._value.get()
-        )
+        before = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="auth-app", reason="auth_error"
+        )._value.get()
 
         with patch("github_sts.rate_limit._generate_app_jwt", return_value="fake-jwt"):
             with patch("httpx.AsyncClient") as mock_client_cls:
@@ -703,10 +663,7 @@ class TestReachabilityProber:
                 await prober._probe_app("auth-app", mock_app_config)
 
         assert metrics.GITHUB_REACHABLE.labels(app="auth-app")._value.get() == 1.0
-        after = (
-            metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
-                app="auth-app", reason="auth_error"
-            )
-            ._value.get()
-        )
+        after = metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
+            app="auth-app", reason="auth_error"
+        )._value.get()
         assert after == before + 1

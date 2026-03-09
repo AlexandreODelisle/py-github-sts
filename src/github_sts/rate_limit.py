@@ -61,9 +61,9 @@ def extract_rate_limit_headers(
     if limit_str is not None:
         try:
             limit_val = int(limit_str)
-            metrics.GITHUB_RATE_LIMIT_LIMIT.labels(
-                app=app_name, resource=resource
-            ).set(limit_val)
+            metrics.GITHUB_RATE_LIMIT_LIMIT.labels(app=app_name, resource=resource).set(
+                limit_val
+            )
         except ValueError:
             pass
 
@@ -79,9 +79,9 @@ def extract_rate_limit_headers(
     if used_str is not None:
         try:
             used_val = int(used_str)
-            metrics.GITHUB_RATE_LIMIT_USED.labels(
-                app=app_name, resource=resource
-            ).set(used_val)
+            metrics.GITHUB_RATE_LIMIT_USED.labels(app=app_name, resource=resource).set(
+                used_val
+            )
         except ValueError:
             pass
 
@@ -225,17 +225,11 @@ class RateLimitPoller:
         """Discover installations for every app and poll rate limits."""
         for app_name, app_config in self._apps.items():
             try:
-                installation_ids = await self._get_installations(
-                    app_name, app_config
-                )
+                installation_ids = await self._get_installations(app_name, app_config)
                 for install_id in installation_ids:
                     try:
-                        token = await self._get_token(
-                            app_name, app_config, install_id
-                        )
-                        await self._poll_with_token(
-                            app_name, install_id, token
-                        )
+                        token = await self._get_token(app_name, app_config, install_id)
+                        await self._poll_with_token(app_name, install_id, token)
                     except Exception as exc:
                         logger.error(
                             "Rate limit poll failed: app=%s installation=%s error=%s",
@@ -328,9 +322,7 @@ class RateLimitPoller:
         token = data["token"]
         from datetime import datetime
 
-        expires_dt = datetime.fromisoformat(
-            data["expires_at"].replace("Z", "+00:00")
-        )
+        expires_dt = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
         expires_epoch = expires_dt.timestamp()
         self._token_cache[cache_key] = (token, expires_epoch)
 
@@ -396,9 +388,7 @@ class RateLimitPoller:
                         app=app_name, resource=resource_name
                     ).set(pct)
 
-        metrics.GITHUB_API_CALLS.labels(
-            endpoint="get_rate_limit", result="ok"
-        ).inc()
+        metrics.GITHUB_API_CALLS.labels(endpoint="get_rate_limit", result="ok").inc()
 
         logger.debug(
             "Rate limit poll complete: app=%s installation=%s",
@@ -471,9 +461,9 @@ class ReachabilityProber:
                 )
 
             elapsed = time.time() - start
-            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(
-                app=app_name
-            ).observe(elapsed)
+            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(app=app_name).observe(
+                elapsed
+            )
 
             if resp.status_code == 401:
                 # The App JWT is rejected — GitHub is reachable but auth fails
@@ -507,9 +497,9 @@ class ReachabilityProber:
 
         except httpx.TimeoutException:
             elapsed = time.time() - start
-            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(
-                app=app_name
-            ).observe(elapsed)
+            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(app=app_name).observe(
+                elapsed
+            )
             metrics.GITHUB_REACHABLE.labels(app=app_name).set(0)
             metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
                 app=app_name, reason="timeout"
@@ -518,9 +508,9 @@ class ReachabilityProber:
 
         except httpx.ConnectError:
             elapsed = time.time() - start
-            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(
-                app=app_name
-            ).observe(elapsed)
+            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(app=app_name).observe(
+                elapsed
+            )
             metrics.GITHUB_REACHABLE.labels(app=app_name).set(0)
             metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
                 app=app_name, reason="connection_error"
@@ -531,9 +521,9 @@ class ReachabilityProber:
 
         except Exception as exc:
             elapsed = time.time() - start
-            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(
-                app=app_name
-            ).observe(elapsed)
+            metrics.GITHUB_REACHABILITY_CHECK_DURATION.labels(app=app_name).observe(
+                elapsed
+            )
             metrics.GITHUB_REACHABLE.labels(app=app_name).set(0)
             metrics.GITHUB_REACHABILITY_FAILURES_TOTAL.labels(
                 app=app_name, reason="connection_error"
