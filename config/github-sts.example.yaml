@@ -61,3 +61,7 @@ audit:
 metrics:
   enabled: true
   prefix: "pygithubsts"
+  rate_limit_poll_enabled: true            # Poll GET /rate_limit periodically
+  rate_limit_poll_interval_seconds: 60     # How often to poll (seconds)
+  reachability_probe_enabled: true         # Probe GitHub API reachability
+  reachability_probe_interval_seconds: 30  # How often to probe (seconds)

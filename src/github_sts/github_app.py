@@ -16,6 +16,7 @@ import jwt as pyjwt  # PyJWT (not python-jose) for signing App JWTs
 
 from . import metrics
 from .config import AppConfig, get_settings
+from .rate_limit import extract_rate_limit_headers
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class GitHubAppTokenProvider:
             algorithm="RS256",
         )
 
-    async def _get_installation_id(self, scope: str) -> int:
+    async def _get_installation_id(self, scope: str, caller: str = "") -> int:
         """
         Resolve a scope ("org/repo" or "org") to a GitHub App installation ID.
         Results are cached indefinitely (installations rarely change).
@@ -78,6 +79,7 @@ class GitHubAppTokenProvider:
             for url in urls:
                 try:
                     resp = await client.get(url, headers=headers)
+                    extract_rate_limit_headers(resp, self._app_name, caller)
                     if resp.status_code == 200:
                         installation_id = resp.json()["id"]
                         _installation_id_cache[id_cache_key] = installation_id
@@ -99,6 +101,7 @@ class GitHubAppTokenProvider:
         self,
         scope: str,
         permissions: dict[str, str] | None = None,
+        caller: str = "",
     ) -> str:
         """
         Get a short-lived installation access token.
@@ -108,7 +111,7 @@ class GitHubAppTokenProvider:
 
         Tokens are cached and reused until 5 minutes before expiry.
         """
-        installation_id = await self._get_installation_id(scope)
+        installation_id = await self._get_installation_id(scope, caller=caller)
 
         # Check cache (key includes app name + permissions hash)
         perms_key = str(sorted(permissions.items())) if permissions else "none"
@@ -137,6 +140,7 @@ class GitHubAppTokenProvider:
                 },
                 json=body,
             )
+            extract_rate_limit_headers(resp, self._app_name, caller)
             resp.raise_for_status()
 
         data = resp.json()

@@ -18,6 +18,7 @@ from . import metrics
 from .audit import create_audit_logger
 from .config import get_settings
 from .jti_cache import create_jti_cache
+from .rate_limit import RateLimitPoller, ReachabilityProber
 from .routes import exchange, health
 
 
@@ -147,6 +148,28 @@ async def lifespan(app: FastAPI):
 
     app.state.loop_lag_task = asyncio.create_task(_monitor_loop_lag())
 
+    # Start rate limit poller
+    if settings.metrics.rate_limit_poll_enabled and settings.apps:
+        poller = RateLimitPoller(
+            apps={
+                name: settings.get_app(name) for name in settings.app_names
+            },
+            interval_seconds=settings.metrics.rate_limit_poll_interval_seconds,
+        )
+        await poller.start()
+        app.state.rate_limit_poller = poller
+
+    # Start reachability prober
+    if settings.metrics.reachability_probe_enabled and settings.apps:
+        prober = ReachabilityProber(
+            apps={
+                name: settings.get_app(name) for name in settings.app_names
+            },
+            interval_seconds=settings.metrics.reachability_probe_interval_seconds,
+        )
+        await prober.start()
+        app.state.reachability_prober = prober
+
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
@@ -155,6 +178,22 @@ async def lifespan(app: FastAPI):
     # Cancel event loop lag monitor
     if hasattr(app.state, "loop_lag_task"):
         app.state.loop_lag_task.cancel()
+
+    # Stop rate limit poller
+    if hasattr(app.state, "rate_limit_poller"):
+        try:
+            await app.state.rate_limit_poller.stop()
+            logger.info("Rate limit poller stopped")
+        except Exception as exc:
+            logger.error("Error stopping rate limit poller: %s", exc)
+
+    # Stop reachability prober
+    if hasattr(app.state, "reachability_prober"):
+        try:
+            await app.state.reachability_prober.stop()
+            logger.info("Reachability prober stopped")
+        except Exception as exc:
+            logger.error("Error stopping reachability prober: %s", exc)
 
     # Clean up JTI cache
     if hasattr(app.state, "jti_cache"):

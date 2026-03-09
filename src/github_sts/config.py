@@ -148,6 +148,10 @@ class MetricsConfig(BaseModel):
 
     enabled: bool = True
     prefix: str = "pygithubsts"
+    rate_limit_poll_enabled: bool = True
+    rate_limit_poll_interval_seconds: int = 60
+    reachability_probe_enabled: bool = True
+    reachability_probe_interval_seconds: int = 30
 
 
 # ── Root configuration ────────────────────────────────────────────────────────
@@ -284,6 +288,14 @@ def _apply_env_overrides(config: dict) -> dict:
         metrics["enabled"] = v.lower() in ("true", "1", "yes")
     if v := os.environ.get(f"{ENV_PREFIX}METRICS_PREFIX"):
         metrics["prefix"] = v
+    if v := os.environ.get(f"{ENV_PREFIX}METRICS_RATE_LIMIT_POLL_ENABLED"):
+        metrics["rate_limit_poll_enabled"] = v.lower() in ("true", "1", "yes")
+    if v := os.environ.get(f"{ENV_PREFIX}METRICS_RATE_LIMIT_POLL_INTERVAL_SECONDS"):
+        metrics["rate_limit_poll_interval_seconds"] = int(v)
+    if v := os.environ.get(f"{ENV_PREFIX}METRICS_REACHABILITY_PROBE_ENABLED"):
+        metrics["reachability_probe_enabled"] = v.lower() in ("true", "1", "yes")
+    if v := os.environ.get(f"{ENV_PREFIX}METRICS_REACHABILITY_PROBE_INTERVAL_SECONDS"):
+        metrics["reachability_probe_interval_seconds"] = int(v)
 
     # ── OIDC overrides ────────────────────────────────────────────────────
     oidc = config.setdefault("oidc", {})

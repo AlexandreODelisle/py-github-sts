@@ -187,7 +187,7 @@ async def exchange_token(
             )
         except ValueError as exc:
             metrics.TOKEN_EXCHANGES_TOTAL.labels(
-                scope=scope, identity=identity, result="oidc_invalid"
+                app=app_name, scope=scope, identity=identity, caller="unknown", result="oidc_invalid"
             ).inc()
             error_msg = str(exc)[:100]
             if audit_logger:
@@ -209,6 +209,7 @@ async def exchange_token(
 
         issuer = claims.get("iss", "unknown")
         subject = claims.get("sub", "unknown")
+        caller = f"{issuer}:{subject}"
         policy_path = f"{settings.policy.base_path}/{app_name}/{identity}.sts.yaml"
         logger.info(
             "Incoming exchange: scope=%s app=%s identity=%s iss=%s sub=%s policy_path=%s",
@@ -293,7 +294,7 @@ async def exchange_token(
 
         if policy is None:
             metrics.TOKEN_EXCHANGES_TOTAL.labels(
-                scope=scope, identity=identity, result="policy_not_found"
+                app=app_name, scope=scope, identity=identity, caller=caller, result="policy_not_found"
             ).inc()
             if audit_logger:
                 await audit_logger.log_event(
@@ -325,7 +326,7 @@ async def exchange_token(
         # ── Step 3: Evaluate policy ───────────────────────────────────────────
         if not policy.evaluate(claims):
             metrics.TOKEN_EXCHANGES_TOTAL.labels(
-                scope=scope, identity=identity, result="denied"
+                app=app_name, scope=scope, identity=identity, caller=caller, result="denied"
             ).inc()
             logger.warning(
                 "Policy denied: scope=%s app=%s identity=%s iss=%s sub=%s",
@@ -360,14 +361,17 @@ async def exchange_token(
         github_token = await provider.get_installation_token(
             scope=scope,
             permissions=policy.permissions,
+            caller=caller,
         )
 
         metrics.TOKEN_EXCHANGES_TOTAL.labels(
-            scope=scope, identity=identity, result="success"
+            app=app_name, scope=scope, identity=identity, caller=caller, result="success"
         ).inc()
 
         elapsed = time.time() - start
-        metrics.TOKEN_EXCHANGE_LATENCY.labels(scope=scope, identity=identity).observe(
+        metrics.TOKEN_EXCHANGE_LATENCY.labels(
+            app=app_name, scope=scope, identity=identity, caller=caller
+        ).observe(
             elapsed
         )
 
@@ -408,7 +412,9 @@ async def exchange_token(
         raise
     except Exception as exc:
         metrics.TOKEN_EXCHANGES_TOTAL.labels(
-            scope=scope, identity=identity, result="error"
+            app=app_name, scope=scope, identity=identity,
+            caller=caller if "caller" in locals() else "unknown",
+            result="error"
         ).inc()
         logger.error("Unexpected error during exchange: %s", exc, exc_info=True)
         if audit_logger:
