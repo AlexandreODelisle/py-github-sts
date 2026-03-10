@@ -122,6 +122,9 @@ spec:
         - name: github-app-{{ $appName }}-key
           secret:
             secretName: {{ $appConfig.existingSecret }}
+            items:
+              - key: {{ $appConfig.secretPrivateKeyKey | default "github-app-private-key" }}
+                path: {{ $appConfig.secretPrivateKeyKey | default "github-app-private-key" }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
