@@ -92,6 +92,10 @@ spec:
             - name: config
               mountPath: /etc/github-sts
               readOnly: true
+            {{- if .Values.logging.audit.fileEnabled }}
+            - name: audit-log
+              mountPath: {{ dir .Values.logging.audit.filePath }}
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -101,6 +105,11 @@ spec:
         - name: config
           configMap:
             name: {{ include "github-sts.fullname" . }}-config
+        {{- if .Values.logging.audit.fileEnabled }}
+        - name: audit-log
+          emptyDir:
+            sizeLimit: 100Mi
+        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
