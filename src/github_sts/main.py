@@ -3,11 +3,10 @@ github-sts: Security Token Service for GitHub API using OIDC federation.
 """
 
 import asyncio
-import json
 import logging
 import time
+import uuid
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -18,50 +17,14 @@ from . import metrics
 from .audit import create_audit_logger
 from .config import get_settings
 from .jti_cache import create_jti_cache
+from .logging_config import setup_logging
+from .request_context import set_trace_id
 from .routes import exchange, health
 
-
-class JSONFormatter(logging.Formatter):
-    """JSON logging formatter with timestamps."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON-Lines."""
-        log_data = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-
-        # Add exception info if present
-        if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
-
-        # Add extra fields from the record
-        if hasattr(record, "extra"):
-            log_data.update(record.extra)
-
-        return json.dumps(log_data)
-
-
-def configure_json_logging(level: str = "INFO"):
-    """Configure JSON logging for all handlers."""
-    root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, level.upper()))
-
-    # Remove existing handlers
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Create console handler with JSON formatter
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(JSONFormatter())
-    root_logger.addHandler(console_handler)
-
-
-# Configure JSON logging on startup
-configure_json_logging(level="INFO")
+# Bootstrap with a minimal stdout logger until setup_logging() runs in lifespan
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
+access_logger = logging.getLogger("github_sts.access")
 
 # OpenAPI tags metadata for better API documentation
 TAGS_METADATA = [
@@ -81,9 +44,21 @@ async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────────────────
     logger.info("github-sts starting up")
 
-    # Initialize settings and reconfigure logging
+    # Initialize settings and configure structured logging
     settings = get_settings()
-    configure_json_logging(level=settings.server.log_level)
+    log_cfg = settings.server.logging
+    # Backward compat: legacy log_level seeds logging.level
+    if settings.server.log_level != "INFO" and log_cfg.level == "INFO":
+        log_cfg = log_cfg.model_copy(update={"level": settings.server.log_level})
+    setup_logging(
+        level=log_cfg.level,
+        access_level=log_cfg.access_level,
+        suppress_health_logs=log_cfg.suppress_health_logs,
+        audit_file_enabled=log_cfg.audit_file_enabled,
+        audit_file_path=log_cfg.audit_file_path,
+        audit_file_max_bytes=log_cfg.audit_file_max_bytes,
+        audit_file_backup_count=log_cfg.audit_file_backup_count,
+    )
 
     # Log policy resolution configuration
     base_path = settings.policy.base_path
@@ -208,6 +183,45 @@ async def prometheus_metrics():
 # Include routers
 app.include_router(exchange.router, prefix="/sts", tags=["exchange"])
 app.include_router(health.router, tags=["health"])
+
+
+@app.middleware("http")
+async def trace_id_middleware(request: Request, call_next):
+    """Assign a server-generated trace ID to every request.
+
+    Always generates a random UUID-hex — client-supplied headers are
+    intentionally ignored to prevent trace-ID spoofing in logs and
+    audit records.  The trace ID is set on the ``ContextVar`` so that
+    every ``logger.*`` call in any module automatically includes it via
+    the ``JSONFormatter``.
+    """
+    trace_id = uuid.uuid4().hex
+    set_trace_id(trace_id)
+    response = await call_next(request)
+    response.headers["X-Trace-ID"] = trace_id
+    return response
+
+
+@app.middleware("http")
+async def access_logging_middleware(request: Request, call_next):
+    """Log every HTTP request on the access channel."""
+    start = time.monotonic()
+    response = await call_next(request)
+    duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+    access_logger.info(
+        "%s %s %d",
+        request.method,
+        request.url.path,
+        response.status_code,
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+    return response
 
 
 @app.middleware("http")

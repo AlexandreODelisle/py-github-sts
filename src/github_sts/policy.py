@@ -110,6 +110,14 @@ class TrustPolicy(BaseModel):
           3. subject_pattern — regex match (if subject not set)
           4. claim_pattern   — all regex patterns must match
         """
+        logger.debug(
+            "Evaluating policy: issuer=%s subject=%s subject_pattern=%s claim_patterns=%s",
+            self.issuer,
+            self.subject,
+            self.subject_pattern,
+            list(self.claim_pattern.keys()) if self.claim_pattern else None,
+        )
+
         # 1. Issuer (always exact)
         if claims.get("iss") != self.issuer:
             logger.debug(
@@ -148,4 +156,5 @@ class TrustPolicy(BaseModel):
                     )
                     return False
 
+        logger.debug("Policy evaluation passed")
         return True

@@ -210,6 +210,16 @@ async def exchange_token(
         issuer = claims.get("iss", "unknown")
         subject = claims.get("sub", "unknown")
         policy_path = f"{settings.policy.base_path}/{app_name}/{identity}.sts.yaml"
+
+        # Log all OIDC claims as a structured JSON object at DEBUG level.
+        # This preserves the original claim shape from any provider
+        # (GitHub Actions, Azure AD, GCP, Kubernetes, Okta, etc.)
+        # for easy parsing with jq, Loki, Datadog, etc.
+        logger.debug(
+            "OIDC token validated — all claims attached",
+            extra={"oidc_claims": dict(claims.items())},
+        )
+
         logger.info(
             "Incoming exchange: scope=%s app=%s identity=%s iss=%s sub=%s policy_path=%s",
             scope,
@@ -396,6 +406,7 @@ async def exchange_token(
             )
             metrics.AUDIT_EVENTS_LOGGED.labels(result="success").inc()
 
+        # SECURITY: github_token is returned to the caller but must never be logged
         return {
             "token": github_token,
             "scope": scope,
