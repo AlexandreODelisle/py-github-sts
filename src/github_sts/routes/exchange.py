@@ -213,7 +213,10 @@ async def exchange_token(
 
         issuer = claims.get("iss", "unknown")
         subject = claims.get("sub", "unknown")
-        caller = f"{issuer}:{subject}"
+        # Use only issuer for the Prometheus label to avoid unbounded
+        # cardinality (sub is issuer-controlled and can be very high-cardinality).
+        # The full iss:sub is still captured in structured logs / audit events.
+        caller = issuer
         policy_path = f"{settings.policy.base_path}/{app_name}/{identity}.sts.yaml"
 
         # Log all OIDC claims as a structured JSON object at DEBUG level.

@@ -32,6 +32,17 @@ def _make_response(
     return resp
 
 
+@pytest.fixture
+def mock_app_config():
+    """Create a mock AppConfig for testing (shared across all test classes)."""
+    config = MagicMock()
+    config.app_id = 12345
+    config.private_key = (
+        "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+    )
+    return config
+
+
 class TestExtractRateLimitHeaders:
     """Unit tests for passive rate limit header extraction."""
 
@@ -224,16 +235,6 @@ class TestExtractRateLimitHeaders:
 
 class TestRateLimitPoller:
     """Unit tests for the active rate limit polling background task."""
-
-    @pytest.fixture
-    def mock_app_config(self):
-        """Create a mock AppConfig for testing."""
-        config = MagicMock()
-        config.app_id = 12345
-        config.private_key = (
-            "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
-        )
-        return config
 
     @pytest.mark.asyncio
     async def test_poller_creates_task(self, mock_app_config):
@@ -442,16 +443,6 @@ class TestRateLimitPoller:
 
 class TestReachabilityProber:
     """Unit tests for the GitHub reachability background probe."""
-
-    @pytest.fixture
-    def mock_app_config(self):
-        """Create a mock AppConfig for testing."""
-        config = MagicMock()
-        config.app_id = 12345
-        config.private_key = (
-            "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
-        )
-        return config
 
     @pytest.mark.asyncio
     async def test_prober_creates_task(self, mock_app_config):

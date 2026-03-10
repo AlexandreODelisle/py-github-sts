@@ -9,6 +9,7 @@ Provides:
 
 import asyncio
 import logging
+import re
 import time
 
 import httpx
@@ -28,6 +29,15 @@ _HEADER_RESOURCE = "x-ratelimit-resource"
 _HEADER_RETRY_AFTER = "retry-after"
 
 GITHUB_API = "https://api.github.com"
+
+# Regex to extract the "next" URL from GitHub's Link header
+_LINK_NEXT_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
+
+
+def _parse_next_link(link_header: str) -> str | None:
+    """Extract the 'next' URL from a GitHub Link header, or None."""
+    m = _LINK_NEXT_RE.search(link_header)
+    return m.group(1) if m else None
 
 
 def extract_rate_limit_headers(
@@ -217,6 +227,8 @@ class RateLimitPoller:
         while True:
             try:
                 await self._poll_all_apps()
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 logger.error("Rate limit poll cycle failed: %s", exc)
             await asyncio.sleep(self._interval)
@@ -247,7 +259,7 @@ class RateLimitPoller:
     async def _get_installations(
         self, app_name: str, app_config: AppConfig
     ) -> list[int]:
-        """List installation IDs for a GitHub App, with caching."""
+        """List installation IDs for a GitHub App, with caching and pagination."""
         cached = self._installation_cache.get(app_name)
         if cached:
             ids, fetched_at = cached
@@ -262,27 +274,29 @@ class RateLimitPoller:
 
         ids: list[int] = []
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(
-                f"{GITHUB_API}/app/installations",
-                headers=headers,
-            )
-            extract_rate_limit_headers(resp, app_name)
+            url: str | None = f"{GITHUB_API}/app/installations?per_page=100"
+            while url is not None:
+                resp = await client.get(url, headers=headers)
+                extract_rate_limit_headers(resp, app_name)
 
-            if resp.status_code != 200:
-                logger.warning(
-                    "Failed to list installations: app=%s status=%d",
-                    app_name,
-                    resp.status_code,
-                )
-                # Fall back to previously cached list if available
-                if cached:
-                    return cached[0]
-                return []
+                if resp.status_code != 200:
+                    logger.warning(
+                        "Failed to list installations: app=%s status=%d",
+                        app_name,
+                        resp.status_code,
+                    )
+                    # Fall back to previously cached list if available
+                    if cached:
+                        return cached[0]
+                    return []
 
-            for installation in resp.json():
-                install_id = installation.get("id")
-                if install_id is not None:
-                    ids.append(install_id)
+                for installation in resp.json():
+                    install_id = installation.get("id")
+                    if install_id is not None:
+                        ids.append(install_id)
+
+                # Follow GitHub pagination via Link header
+                url = _parse_next_link(resp.headers.get("link", ""))
 
         self._installation_cache[app_name] = (ids, time.time())
         logger.debug(
@@ -440,8 +454,13 @@ class ReachabilityProber:
     async def _probe_loop(self) -> None:
         """Main probing loop."""
         while True:
-            for app_name, app_config in self._apps.items():
-                await self._probe_app(app_name, app_config)
+            try:
+                for app_name, app_config in self._apps.items():
+                    await self._probe_app(app_name, app_config)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error("Reachability probe cycle failed: %s", exc)
             await asyncio.sleep(self._interval)
 
     async def _probe_app(self, app_name: str, app_config: AppConfig) -> None:
