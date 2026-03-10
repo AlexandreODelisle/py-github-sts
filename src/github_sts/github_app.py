@@ -157,13 +157,14 @@ class GitHubAppTokenProvider:
             endpoint="create_installation_token", result="ok"
         ).inc()
 
+        # SECURITY: Never log token values — only metadata (app, scope, permissions)
         logger.info(
             "Issued GitHub token: app=%s scope=%s permissions=%s",
             self._app_name,
             scope,
             perm_str,
         )
-        return token
+        return token  # SECURITY: token must not be logged at any level
 
 
 def get_token_provider(app_name: str) -> GitHubAppTokenProvider:
