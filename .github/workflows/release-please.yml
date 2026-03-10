@@ -33,7 +33,7 @@ jobs:
     name: Release Docker
     needs: [release-please]
     if: ${{ needs.release-please.outputs.docker_release_created == 'true' }}
-    uses: ./.github/workflows/release-docker.yml
+    uses: ./.github/workflows/release-python-docker.yml
     with:
       tag_name: ${{ needs.release-please.outputs.docker_tag_name }}
     permissions:
