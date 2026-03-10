@@ -49,11 +49,6 @@ class AuditEvent(BaseModel):
         description="ISO 8601 timestamp of the event",
     )
 
-    # Trace ID for cross-cutting log correlation
-    trace_id: str | None = Field(
-        None, description="Request trace ID for correlating logs and audit entries"
-    )
-
     # Request details
     scope: str = Field(..., description="Requested repository or org scope")
     identity: str = Field(..., description="Trust policy identity being evaluated")

@@ -187,15 +187,15 @@ app.include_router(health.router, tags=["health"])
 
 @app.middleware("http")
 async def trace_id_middleware(request: Request, call_next):
-    """Assign a trace ID to every request for cross-cutting log correlation.
+    """Assign a server-generated trace ID to every request.
 
-    Reads an incoming ``X-Trace-ID`` header when present so that callers
-    can propagate their own correlation ID.  Otherwise a random UUID-hex
-    is generated.  The trace ID is set on the ``ContextVar`` so that
+    Always generates a random UUID-hex — client-supplied headers are
+    intentionally ignored to prevent trace-ID spoofing in logs and
+    audit records.  The trace ID is set on the ``ContextVar`` so that
     every ``logger.*`` call in any module automatically includes it via
     the ``JSONFormatter``.
     """
-    trace_id = request.headers.get("x-trace-id") or uuid.uuid4().hex
+    trace_id = uuid.uuid4().hex
     set_trace_id(trace_id)
     response = await call_next(request)
     response.headers["X-Trace-ID"] = trace_id

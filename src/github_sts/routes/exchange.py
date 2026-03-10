@@ -24,7 +24,6 @@ from ..github_app import get_token_provider
 from ..jti_cache import JTICacheError
 from ..oidc import validate_oidc_token
 from ..policy_loader import get_policy_loader
-from ..request_context import get_trace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -172,7 +171,6 @@ async def exchange_token(
     """
     settings = get_settings()
     start = time.time()
-    trace_id = get_trace_id()
     audit_logger = getattr(request.app.state, "audit_logger", None) if request else None
     user_agent = request.headers.get("user-agent", "") if request else ""
     remote_ip = request.client.host if request and request.client else ""
@@ -195,7 +193,6 @@ async def exchange_token(
             if audit_logger:
                 await audit_logger.log_event(
                     AuditEvent(
-                        trace_id=trace_id,
                         scope=scope,
                         identity=identity,
                         issuer="unknown",
@@ -254,7 +251,6 @@ async def exchange_token(
                         if audit_logger:
                             await audit_logger.log_event(
                                 AuditEvent(
-                                    trace_id=trace_id,
                                     scope=scope,
                                     identity=identity,
                                     issuer=issuer,
@@ -280,7 +276,6 @@ async def exchange_token(
                     if audit_logger:
                         await audit_logger.log_event(
                             AuditEvent(
-                                trace_id=trace_id,
                                 scope=scope,
                                 identity=identity,
                                 issuer=issuer,
@@ -313,7 +308,6 @@ async def exchange_token(
             if audit_logger:
                 await audit_logger.log_event(
                     AuditEvent(
-                        trace_id=trace_id,
                         scope=scope,
                         identity=identity,
                         issuer=issuer,
@@ -354,7 +348,6 @@ async def exchange_token(
             if audit_logger:
                 await audit_logger.log_event(
                     AuditEvent(
-                        trace_id=trace_id,
                         scope=scope,
                         identity=identity,
                         issuer=issuer,
@@ -400,7 +393,6 @@ async def exchange_token(
         if audit_logger:
             await audit_logger.log_event(
                 AuditEvent(
-                    trace_id=trace_id,
                     scope=scope,
                     identity=identity,
                     issuer=issuer,
@@ -434,7 +426,6 @@ async def exchange_token(
             try:
                 await audit_logger.log_event(
                     AuditEvent(
-                        trace_id=trace_id,
                         scope=scope,
                         identity=identity,
                         issuer=issuer if "issuer" in locals() else "unknown",
