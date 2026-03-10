@@ -99,6 +99,11 @@ spec:
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+            {{- range $appName, $appConfig := .Values.github.apps }}
+            - name: github-app-{{ $appName }}-key
+              mountPath: /etc/github-sts/apps/{{ $appName }}
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
@@ -112,6 +117,11 @@ spec:
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range $appName, $appConfig := .Values.github.apps }}
+        - name: github-app-{{ $appName }}-key
+          secret:
+            secretName: {{ $appConfig.existingSecret }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

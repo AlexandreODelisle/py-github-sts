@@ -249,6 +249,24 @@ github:
   # -- Key in existing secret for private key
   secretPrivateKeyKey: "github-app-private-key"
 
+  # -- Multiple GitHub Apps configuration (for multi-app deployments).
+  # Each key is the app name used in policy paths: {policy.basePath}/{appName}/{identity}.sts.yaml
+  # Each app's private key must be stored in an existing Kubernetes Secret.
+  # When apps is non-empty, the apps section is rendered in the ConfigMap YAML config.
+  # The single-app env var approach (github.appId) still works alongside these entries.
+  apps: {}
+  # apps:
+  #   my-app:
+  #     # -- GitHub App ID
+  #     appId: "12345"
+  #     # -- Name of an existing Secret containing the private key
+  #     existingSecret: "my-app-github-credentials"
+  #     # -- Key in the secret that holds the private key PEM (default: "github-app-private-key")
+  #     secretPrivateKeyKey: "github-app-private-key"
+  #   another-app:
+  #     appId: "67890"
+  #     existingSecret: "another-app-github-credentials"
+
 # -- Additional pod annotations
 podAnnotations: {}
 

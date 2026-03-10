@@ -102,7 +102,7 @@ class AppConfig(BaseModel):
     private_key_path: str | None = None  # Path to PEM file
 
     @model_validator(mode="after")
-    def resolve_private_key(self) -> AppConfig:
+    def resolve_private_key(self) -> "AppConfig":  # noqa: UP037
         """Load private key from file if private_key_path is given."""
         if self.private_key and not self.private_key.startswith("-----BEGIN"):
             # Treat as file path for backward compat

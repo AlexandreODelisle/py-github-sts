@@ -73,16 +73,16 @@ class PolicyLoader(ABC):
         """Load and return a TrustPolicy, or None if not found."""
         ...
 
-    def _parse(self, raw_yaml: str, source: str, backend: str) -> TrustPolicy | None:
+    def _parse(self, raw_yaml: str, source: str, backend: str, app_name: str = "") -> TrustPolicy | None:
         try:
             data = yaml.safe_load(raw_yaml)
             policy = TrustPolicy(**data)
-            metrics.POLICY_LOADS_TOTAL.labels(backend=backend, result="ok").inc()
+            metrics.POLICY_LOADS_TOTAL.labels(app=app_name, backend=backend, result="ok").inc()
             return policy
         except (yaml.YAMLError, ValidationError, TypeError) as exc:
             logger.warning("Failed to parse policy from %s: %s", source, exc)
             metrics.POLICY_LOADS_TOTAL.labels(
-                backend=backend, result="parse_error"
+                app=app_name, backend=backend, result="parse_error"
             ).inc()
             return None
 
@@ -116,10 +116,10 @@ class GitHubPolicyLoader(PolicyLoader):
         if ttl > 0:
             cached = await _get_cached(cache_key)
             if cached is not None:
-                metrics.POLICY_CACHE_HITS.inc()
+                metrics.POLICY_CACHE_HITS.labels(app=app_name).inc()
                 _, policy = cached
                 return policy
-            metrics.POLICY_CACHE_MISSES.inc()
+            metrics.POLICY_CACHE_MISSES.labels(app=app_name).inc()
 
         policy = await self._fetch_from_github(scope, app_name, identity)
 
@@ -148,11 +148,11 @@ class GitHubPolicyLoader(PolicyLoader):
                 )
                 if resp.status_code == 404:
                     metrics.POLICY_LOADS_TOTAL.labels(
-                        backend="github", result="not_found"
+                        app=app_name, backend="github", result="not_found"
                     ).inc()
                     return None
                 resp.raise_for_status()
-                return self._parse(resp.text, url, "github")
+                return self._parse(resp.text, url, "github", app_name)
         except httpx.HTTPError as exc:
             logger.error(
                 "GitHub API error fetching policy %s/%s/%s: %s",
@@ -162,7 +162,7 @@ class GitHubPolicyLoader(PolicyLoader):
                 exc,
             )
             metrics.POLICY_LOADS_TOTAL.labels(
-                backend="github", result="http_error"
+                app=app_name, backend="github", result="http_error"
             ).inc()
             return None
 
@@ -199,10 +199,10 @@ class DatabasePolicyLoader(PolicyLoader):
         if ttl > 0:
             cached = await _get_cached(cache_key)
             if cached is not None:
-                metrics.POLICY_CACHE_HITS.inc()
+                metrics.POLICY_CACHE_HITS.labels(app=app_name).inc()
                 _, policy = cached
                 return policy
-            metrics.POLICY_CACHE_MISSES.inc()
+            metrics.POLICY_CACHE_MISSES.labels(app=app_name).inc()
 
         policy = await self._query(scope, app_name, identity)
 
@@ -217,7 +217,7 @@ class DatabasePolicyLoader(PolicyLoader):
         if self._pool is None:
             logger.error("DatabasePolicyLoader: no db pool configured")
             metrics.POLICY_LOADS_TOTAL.labels(
-                backend="database", result="no_pool"
+                app=app_name, backend="database", result="no_pool"
             ).inc()
             return None
 
@@ -231,11 +231,11 @@ class DatabasePolicyLoader(PolicyLoader):
             )
             if row is None:
                 metrics.POLICY_LOADS_TOTAL.labels(
-                    backend="database", result="not_found"
+                    app=app_name, backend="database", result="not_found"
                 ).inc()
                 return None
             return self._parse(
-                row["policy"], f"db:{scope}/{app_name}/{identity}", "database"
+                row["policy"], f"db:{scope}/{app_name}/{identity}", "database", app_name
             )
         except Exception as exc:
             logger.error(
@@ -246,7 +246,7 @@ class DatabasePolicyLoader(PolicyLoader):
                 exc,
             )
             metrics.POLICY_LOADS_TOTAL.labels(
-                backend="database", result="db_error"
+                app=app_name, backend="database", result="db_error"
             ).inc()
             return None
 
