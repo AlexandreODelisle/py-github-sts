@@ -169,6 +169,18 @@ audit:
 metrics:
   enabled: true
   prefix: "pygithubsts"
+  # -- Rate limit polling configuration
+  rateLimitPoll:
+    # -- Enable periodic polling of GitHub rate limit API
+    enabled: true
+    # -- Polling interval in seconds
+    intervalSeconds: 60
+  # -- Reachability probe configuration
+  reachabilityProbe:
+    # -- Enable periodic GitHub API reachability probing
+    enabled: true
+    # -- Probe interval in seconds
+    intervalSeconds: 30
 
 # -- ServiceMonitor for Prometheus Operator
 serviceMonitor:
