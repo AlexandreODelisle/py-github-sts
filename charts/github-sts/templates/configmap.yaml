@@ -10,6 +10,14 @@ data:
       host: "0.0.0.0"
       port: {{ .Values.service.targetPort }}
       log_level: {{ .Values.logging.level | quote }}
+      logging:
+        level: {{ .Values.logging.level | quote }}
+        access_level: {{ .Values.logging.accessLevel | quote }}
+        suppress_health_logs: {{ .Values.logging.suppressHealthLogs }}
+        audit_file_enabled: {{ .Values.logging.audit.fileEnabled }}
+        audit_file_path: {{ .Values.logging.audit.filePath | quote }}
+        audit_file_max_bytes: {{ .Values.logging.audit.fileMaxBytes | int }}
+        audit_file_backup_count: {{ .Values.logging.audit.fileBackupCount | int }}
 
     policy:
       backend: {{ .Values.policy.backend | quote }}
@@ -41,3 +49,7 @@ data:
     metrics:
       enabled: {{ .Values.metrics.enabled }}
       prefix: {{ .Values.metrics.prefix | quote }}
+      rate_limit_poll_enabled: {{ .Values.metrics.rateLimitPoll.enabled }}
+      rate_limit_poll_interval_seconds: {{ .Values.metrics.rateLimitPoll.intervalSeconds }}
+      reachability_probe_enabled: {{ .Values.metrics.reachabilityProbe.enabled }}
+      reachability_probe_interval_seconds: {{ .Values.metrics.reachabilityProbe.intervalSeconds }}

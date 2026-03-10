@@ -27,13 +27,14 @@ IN_FLIGHT = Gauge(
 TOKEN_EXCHANGES_TOTAL = Counter(
     "pygithubsts_token_exchanges_total",
     "Total token exchange attempts",
-    ["scope", "identity", "result"],  # result: success | denied | error
+    ["app", "scope", "identity", "caller", "result"],
+    # result: success | denied | error | oidc_invalid | policy_not_found
 )
 
 TOKEN_EXCHANGE_LATENCY = Histogram(
     "pygithubsts_token_exchange_duration_seconds",
     "Token exchange duration in seconds",
-    ["scope", "identity"],
+    ["app", "scope", "identity", "caller"],
     buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
 )
 
@@ -96,6 +97,75 @@ GITHUB_TOKEN_ISSUED = Counter(
     "pygithubsts_github_tokens_issued_total",
     "GitHub installation tokens issued",
     ["scope", "permissions"],
+)
+
+# ── GitHub API rate limit metrics ─────────────────────────────────────────────
+GITHUB_RATE_LIMIT_LIMIT = Gauge(
+    "pygithubsts_github_rate_limit_limit",
+    "Maximum number of requests allowed in the current rate limit window",
+    ["app", "resource"],
+)
+
+GITHUB_RATE_LIMIT_REMAINING = Gauge(
+    "pygithubsts_github_rate_limit_remaining",
+    "Remaining requests before rate limit is reached",
+    ["app", "resource"],
+)
+
+GITHUB_RATE_LIMIT_USED = Gauge(
+    "pygithubsts_github_rate_limit_used",
+    "Requests used in the current rate limit window",
+    ["app", "resource"],
+)
+
+GITHUB_RATE_LIMIT_RESET_TIMESTAMP = Gauge(
+    "pygithubsts_github_rate_limit_reset_timestamp",
+    "Unix epoch timestamp when the rate limit window resets",
+    ["app", "resource"],
+)
+
+GITHUB_RATE_LIMIT_REMAINING_PERCENT = Gauge(
+    "pygithubsts_github_rate_limit_remaining_percent",
+    "Percentage of rate limit remaining (remaining / limit * 100)",
+    ["app", "resource"],
+)
+
+GITHUB_RATE_LIMIT_EXCEEDED_TOTAL = Counter(
+    "pygithubsts_github_rate_limit_exceeded_total",
+    "Total primary rate limit exceeded events (HTTP 403 from GitHub)",
+    ["app", "resource", "caller"],
+)
+
+GITHUB_SECONDARY_RATE_LIMIT_TOTAL = Counter(
+    "pygithubsts_github_secondary_rate_limit_total",
+    "Total secondary (abuse) rate limit events from GitHub",
+    ["app", "caller"],
+)
+
+GITHUB_SECONDARY_RATE_LIMIT_RETRY_AFTER = Gauge(
+    "pygithubsts_github_secondary_rate_limit_retry_after_seconds",
+    "Current retry-after value in seconds when secondary rate limit is active",
+    ["app"],
+)
+
+# ── GitHub reachability metrics ───────────────────────────────────────────────
+GITHUB_REACHABLE = Gauge(
+    "pygithubsts_github_reachable",
+    "Whether GitHub API is reachable (1 = reachable, 0 = unreachable)",
+    ["app"],
+)
+
+GITHUB_REACHABILITY_CHECK_DURATION = Histogram(
+    "pygithubsts_github_reachability_check_duration_seconds",
+    "Latency of reachability probe to GitHub API",
+    ["app"],
+    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+)
+
+GITHUB_REACHABILITY_FAILURES_TOTAL = Counter(
+    "pygithubsts_github_reachability_failures_total",
+    "Total GitHub reachability probe failures",
+    ["app", "reason"],  # reason: timeout | connection_error | http_error | auth_error
 )
 
 # ── Event loop health ─────────────────────────────────────────────────────────
