@@ -14,7 +14,7 @@ Usage examples for exchanging OIDC tokens from various identity providers via **
 ```yaml
 oidc:
   allowed_issuers:
-    - "https://login.microsoftonline.com/<tenant-id>/v2.0"
+  - "https://sts.windows.net/<tenant-id>/"
 ```
 
 - A trust policy (e.g. `.github/sts/default/my-azure-identity.sts.yaml`) in the target repository that matches Azure AD token claims
@@ -47,6 +47,9 @@ curl -sf \
 ```json
 {
   "token": "ghs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "scope":"<org>/<repo>",
+  "app":"default",
+  "identity":"test-azure",
   "permissions": {
     "contents": "read"
   },
