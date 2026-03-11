@@ -2,40 +2,19 @@
 
 A Python-based Security Token Service (STS) for the GitHub API.
 
-Workloads with OIDC tokens (GitHub Actions, GCP, AWS, Kubernetes, Okta, …) exchange them for **short-lived, scoped GitHub installation tokens**. No PATs required.
+Workloads with OIDC tokens (GitHub Actions, Azure AD, GCP, AWS, Kubernetes, Okta, …) exchange them for **short-lived, scoped GitHub installation tokens**. No PATs required.
 
 Supports **multiple GitHub Apps** with YAML-based configuration (ideal for Kubernetes ConfigMaps).
 
-Inspired by [**octo-sts/app**](https://github.com/octo-sts/app), an excellent Go-based implementation that pioneered the concept of using OIDC federation for GitHub token exchange.
-
----
-
-## Why?
-
-Organizations using GitHub often face a dilemma when distributing access:
-
-| Approach | Pros | Cons |
-|---|---|---|
-| **GitHub App Tokens** | Secure, scoped | Complex to manage across many systems |
-| **Personal Access Tokens (PATs)** | Simple | Long-lived, broad permissions |
-| **Deploy Keys** | Scoped to repos | Read-only, hard to rotate |
-| **SSH Keys** | Familiar | Hard to audit, tied to individuals |
-
-**github-sts** eliminates the tradeoff — workloads present an OIDC token and receive a short-lived, least-privilege GitHub token with no stored credentials.
-
-**CI/CD & Automation:**
-```
-Workflow → OIDC Token → STS → Scoped GitHub Token → Deploy
-```
-
-**Internal Tools & Scripts:**
-```
-Developer Tool → OIDC Token (from corporate IdP) → STS → Temporary Access
-```
+Inspired by [**octo-sts/app**](https://github.com/octo-sts/app) — see [NOTICE](NOTICE) for attribution.
 
 ---
 
 ## How It Works
+
+```
+Workload → OIDC Token → github-sts → Scoped GitHub Token
+```
 
 ```
   Workload                  github-sts                   GitHub
@@ -48,8 +27,6 @@ Developer Tool → OIDC Token (from corporate IdP) → STS → Temporary Access
      │─────────────────────────>│                          │
      │                          │  Validate OIDC sig/exp   │
      │                          │  Load trust policy       │
-     │                          │    {base_path}/{app}/    │
-     │                          │    {identity}.sts.yaml   │
      │                          │  Evaluate claims         │
      │                          │  Request install token ──>
      │                          │<─────────────────────────│
@@ -59,115 +36,80 @@ Developer Tool → OIDC Token (from corporate IdP) → STS → Temporary Access
 
 ---
 
-## Project Structure
-
-```
-src/github_sts/              # Main package
-  ├── main.py                # FastAPI app entry point
-  ├── config.py              # YAML + env var configuration
-  ├── policy.py              # Trust policy model & validation
-  ├── oidc.py                # OIDC token validation & verification
-  ├── github_app.py          # GitHub App token provider
-  ├── policy_loader.py       # Policy storage backends
-  ├── jti_cache.py           # JTI validation caching
-  ├── metrics.py             # Prometheus metrics
-  ├── audit.py               # Request auditing
-  └── routes/                # API endpoints
-      ├── exchange.py        # Token exchange endpoint
-      └── health.py          # Health check endpoints
-
-tests/                       # Test suite
-  ├── test_policy.py         # Trust policy tests
-  ├── test_audit.py          # Audit logging tests
-  └── test_jti_cache.py      # JTI cache tests
-
-pyproject.toml              # Project configuration (dependencies, tools)
-Dockerfile                  # Multi-stage Docker build
-```
-
----
-
 ## Quick Start
 
-### Prerequisites
+### Option 1: Docker (local only)
 
-- Python 3.14+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
-
-### 1. Get GitHub App Credentials
+A pre-built image is available from [GitHub Container Registry](https://github.com/AlexandreODelisle/py-github-sts/pkgs/container/py-github-sts):
 
 ```bash
-export PYGITHUBSTS_GITHUB_APP_ID=$(vault kv get -field=github_app_id homelab/github-action/github-sts)
-export PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY=$(vault kv get -field=github_app_private_key homelab/github-action/github-sts)
+docker run -p 9999:8080 \
+  -e PYGITHUBSTS_GITHUB_APP_ID="your_app_id" \
+  -e PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY="$(cat /path/to/private_key.pem)" \
+  ghcr.io/alexandreodelisle/py-github-sts:latest
 ```
 
-Or create a config file (see [config/github-sts.example.yaml](config/github-sts.example.yaml)):
+### Option 2: Helm (Kubernetes)
+
+The Helm chart is published to the GitHub Container Registry OCI repository:
+
 ```bash
-export PYGITHUBSTS_CONFIG_PATH=./config/github-sts.example.yaml
-export PYGITHUBSTS_GITHUB_APP_ID=your_app_id
-export PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY=your_private_key
+# Create credentials secret
+kubectl create secret generic github-sts-credentials \
+  --from-literal=github-app-id="YOUR_GITHUB_APP_ID" \
+  --from-file=github-app-private-key=/path/to/private_key.pem
+
+# Install from OCI registry
+helm install github-sts \
+  oci://ghcr.io/alexandreodelisle/py-github-sts/github-sts-chart \
+  --set github.existingSecret="github-sts-credentials"
 ```
 
-### 2. Install Dependencies
+See the [chart README](charts/github-sts/README.md) for full configuration options including Ingress/HTTPRoute setup.
 
-**Using uv (recommended):**
+### Option 3: From Source
+
 ```bash
+# Prerequisites: Python 3.14+, uv (https://docs.astral.sh/uv/)
 uv sync
-```
 
-**Using pip:**
-```bash
-pip install -e .
-```
+export PYGITHUBSTS_GITHUB_APP_ID=your_app_id
+export PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY="$(cat /path/to/private_key.pem)"
 
-### 3. Run Locally
-
-**With uv:**
-```bash
 uv run python -m uvicorn github_sts.main:app --host 0.0.0.0 --port 9999
 ```
 
-**With pip:**
-```bash
-python -m uvicorn github_sts.main:app --host 0.0.0.0 --port 9999
-```
+### Verify
 
-**With auto-reload (development):**
-```bash
-uv run python -m uvicorn github_sts.main:app --host 0.0.0.0 --port 9999 --reload
-```
-
-### 4. Test the Service
-
-Health check:
 ```bash
 curl http://localhost:9999/health
 # {"status":"ok"}
 ```
 
-Exchange a token:
+---
+
+## Usage
+
+Exchange an OIDC token for a scoped GitHub token:
+
 ```bash
-curl -H "Authorization: Bearer $OIDC_TOKEN" \
+curl -sf -H "Authorization: Bearer $OIDC_TOKEN" \
   "http://localhost:9999/sts/exchange?scope=org/repo&app=default&identity=ci"
 ```
 
-View metrics:
-```bash
-curl http://localhost:9999/metrics
-```
+For complete usage examples — including GitHub Actions (native OIDC), Azure AD / Entra ID (CLI and workflows), and more — see **[EXAMPLES.md](EXAMPLES.md)**.
 
 ---
 
 ## Trust Policies
 
-Policies are fetched directly from GitHub repositories.
+Policies are fetched directly from GitHub repositories at:
 
-Each policy lives at `{base_path}/{app_name}/{identity}.sts.yaml` in the target repository.
+```
+{base_path}/{app_name}/{identity}.sts.yaml
+```
 
-Default path: `.github/sts/{app_name}/{identity}.sts.yaml`
-
-For example, with `app=my-app` and `identity=ci`:
-`.github/sts/my-app/ci.sts.yaml`
+Default: `.github/sts/default/{identity}.sts.yaml`
 
 ### Policy Schema
 
@@ -182,10 +124,10 @@ permissions:
 
 **Regex patterns (flexible):**
 ```yaml
-issuer: https://accounts.google.com
-subject_pattern: "[0-9]+"         # Google SA unique ID
+issuer: https://login.microsoftonline.com/<tenant-id>/v2.0
+subject_pattern: "[a-f0-9-]+"     # Azure AD object ID
 claim_pattern:
-  email: ".*@example\\.com"       # restrict by email domain
+  azp: "<client-id>"              # restrict by app registration
 permissions:
   contents: read
 ```
@@ -213,45 +155,11 @@ permissions:
 
 ---
 
-## GitHub Actions Usage
-
-```yaml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - name: Get scoped GitHub token
-        id: sts
-        run: |
-          OIDC_TOKEN=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=github-sts" | jq -r '.value')
-
-          GITHUB_TOKEN=$(curl -sf \
-            -H "Authorization: Bearer $OIDC_TOKEN" \
-            "${{ vars.STS_URL }}/sts/exchange?scope=${{ github.repository }}&app=default&identity=ci" \
-            | jq -r '.token')
-
-          echo "::add-mask::$GITHUB_TOKEN"
-          echo "token=$GITHUB_TOKEN" >> $GITHUB_OUTPUT
-
-      - name: Use scoped token
-        env:
-          GITHUB_TOKEN: ${{ steps.sts.outputs.token }}
-        run: gh issue list
-```
-
----
-
 ## Configuration
-
-### Configuration File (YAML)
 
 github-sts uses YAML-based configuration, ideal for Kubernetes ConfigMaps.
 See [config/github-sts.example.yaml](config/github-sts.example.yaml) for a complete example.
 
-Set the config file path:
 ```bash
 export PYGITHUBSTS_CONFIG_PATH=/etc/github-sts/config.yaml
 ```
@@ -259,18 +167,6 @@ export PYGITHUBSTS_CONFIG_PATH=/etc/github-sts/config.yaml
 ### Environment Variables
 
 Environment variables with `PYGITHUBSTS_` prefix override YAML config.
-
-**Single-app shortcut (env vars):**
-```bash
-export PYGITHUBSTS_GITHUB_APP_ID=your_app_id
-export PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY=your_private_key
-```
-
-**From Vault:**
-```bash
-export PYGITHUBSTS_GITHUB_APP_ID=$(vault kv get -field=github_app_id homelab/github-action/github-sts)
-export PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY=$(vault kv get -field=github_app_private_key homelab/github-action/github-sts)
-```
 
 | Env var | Default | Description |
 |---|---|---|
@@ -309,47 +205,6 @@ export PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY=$(vault kv get -field=github_app_priva
 | `pygithubsts_github_tokens_issued_total` | Counter | Tokens issued by scope/permissions |
 
 ---
-
-## Docker
-
-### Build the image
-
-```bash
-docker build -t github-sts:latest .
-```
-
-### Run with Docker
-
-```bash
-docker run -p 9999:8080 \
-  -e PYGITHUBSTS_GITHUB_APP_ID="$PYGITHUBSTS_GITHUB_APP_ID" \
-  -e PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY="$PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY" \
-  github-sts:latest
-```
-
-Service will be available at `http://localhost:9999`
-
----
-
-## Helm Chart
-
-A Helm chart is available for Kubernetes deployments in [`charts/github-sts`](charts/github-sts).
-
-### Basic Deployment
-
-```bash
-# Create credentials secret
-kubectl create secret generic github-sts-credentials \
-  --from-literal=github-app-id="YOUR_GITHUB_APP_ID" \
-  --from-file=github-app-private-key=/path/to/private_key.pem
-
-# Install
-helm install github-sts ./charts/github-sts \
-  --set github.existingSecret="github-sts-credentials"
-```
-
-See the [chart README](charts/github-sts/README.md) for full configuration options, Ingress/HTTPRoute setup, and more examples.
-
 
 ## Development
 
@@ -410,49 +265,6 @@ The project uses **Ruff** for linting and formatting:
 
 Configuration is in `pyproject.toml` under `[tool.ruff]`
 
-### Using Make (convenience commands)
-
-```bash
-make dev       # Install dependencies
-make lint      # Run linter
-make format    # Format code
-make check     # Run all checks
-make test      # Run tests
-make clean     # Clean cache files
-```
-
----
-
-## Troubleshooting
-
-### "No module named 'src'"
-Make sure you've installed the package:
-```bash
-uv sync
-# or
-pip install -e .
-```
-
-### "ruff: command not found"
-Initialize the uv environment:
-```bash
-uv sync
-uv run ruff --version
-```
-
-### Tests fail with import errors
-Reinstall the package in development mode:
-```bash
-uv sync
-uv run pytest
-```
-
-### Health check fails
-Verify environment variables are set:
-```bash
-env | grep PYGITHUBSTS
-```
-
 ---
 
 ## Contributing
@@ -474,11 +286,18 @@ MIT License — See [LICENSE](LICENSE)
 
 ## References
 
+**Inspiration:**
 - [octo-sts/app](https://github.com/octo-sts/app) — Original Go implementation
-- [GitHub OIDC Documentation](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
+
+**GitHub:**
+- [GitHub Apps](https://docs.github.com/en/apps)
+- [GitHub Actions OIDC](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
+
+**Standards:**
 - [OpenID Connect Specification](https://openid.net/connect/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [uv Documentation](https://docs.astral.sh/uv/)
-- [Ruff Documentation](https://docs.astral.sh/ruff/)
-- [pytest Documentation](https://docs.pytest.org/)
-- [GitHub App Documentation](https://docs.github.com/en/apps)
+
+**Tools:**
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [uv](https://docs.astral.sh/uv/)
+- [Ruff](https://docs.astral.sh/ruff/)
+- [pytest](https://docs.pytest.org/)
