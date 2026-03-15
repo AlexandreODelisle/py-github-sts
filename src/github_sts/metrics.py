@@ -73,30 +73,32 @@ AUDIT_LOG_ERRORS = Counter(
 POLICY_LOADS_TOTAL = Counter(
     "pygithubsts_policy_loads_total",
     "Total policy file load attempts",
-    ["backend", "result"],  # backend: github | database
+    ["app", "backend", "result"],  # backend: github | database
 )
 
 POLICY_CACHE_HITS = Counter(
     "pygithubsts_policy_cache_hits_total",
     "Policy cache hits",
+    ["app"],
 )
 
 POLICY_CACHE_MISSES = Counter(
     "pygithubsts_policy_cache_misses_total",
     "Policy cache misses",
+    ["app"],
 )
 
 # ── GitHub App metrics ────────────────────────────────────────────────────────
 GITHUB_API_CALLS = Counter(
     "pygithubsts_github_api_calls_total",
     "Total GitHub API calls",
-    ["endpoint", "result"],
+    ["app", "endpoint", "result"],
 )
 
 GITHUB_TOKEN_ISSUED = Counter(
     "pygithubsts_github_tokens_issued_total",
     "GitHub installation tokens issued",
-    ["scope", "permissions"],
+    ["app", "scope", "permissions"],
 )
 
 # ── GitHub API rate limit metrics ─────────────────────────────────────────────

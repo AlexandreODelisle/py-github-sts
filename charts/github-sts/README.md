@@ -11,43 +11,38 @@ A Kubernetes Helm chart for deploying the GitHub Security Token Service (STS).
 
 ### Quick Start
 
-1. **Using an existing secret (recommended):**
+1. **Create a Kubernetes secret with your GitHub App private key:**
 
-First, create the secret:
 ```bash
-kubectl create secret generic github-sts-credentials \
-  --from-literal=github-app-id="YOUR_GITHUB_APP_ID" \
+kubectl create secret generic my-github-app-credentials \
   --from-file=github-app-private-key=/path/to/private_key.pem
 ```
 
-Then install with the existing secret:
-```bash
-helm install github-sts . \
-  --set github.existingSecret="github-sts-credentials"
-```
-
-2. **With `--set-file` for the private key:**
+2. **Install with the app configured:**
 
 ```bash
 helm install github-sts . \
-  --set github.appId="YOUR_GITHUB_APP_ID" \
-  --set-file github.appPrivateKey=/path/to/private_key.pem
+  --set github.apps.default.appId="YOUR_GITHUB_APP_ID" \
+  --set github.apps.default.existingSecret="my-github-app-credentials"
 ```
 
-> **Note:** Avoid passing multi-line PEM keys via `--set` on the command line.
-> Use `--set-file`, an existing secret, or a values file instead to prevent
-> shell history exposure and YAML escaping issues.
+3. **Multiple apps:**
 
-3. **Using Vault:**
-
-If you have Vault integration configured:
 ```bash
-export GITHUB_APP_ID=$(vault kv get -field=github_app_id homelab/github-action/octo-sts)
+kubectl create secret generic app1-credentials \
+  --from-file=github-app-private-key=/path/to/app1_key.pem
+kubectl create secret generic app2-credentials \
+  --from-file=github-app-private-key=/path/to/app2_key.pem
 
 helm install github-sts . \
-  --set github.appId="$GITHUB_APP_ID" \
-  --set-file github.appPrivateKey=/path/to/private_key.pem
+  --set github.apps.app1.appId="111" \
+  --set github.apps.app1.existingSecret="app1-credentials" \
+  --set github.apps.app2.appId="222" \
+  --set github.apps.app2.existingSecret="app2-credentials"
 ```
+
+> **Note:** Each app's private key must be stored in an existing Kubernetes Secret.
+> The app name is used in policy paths: `{policy.basePath}/{appName}/{identity}.sts.yaml`
 
 ## Configuration
 
@@ -63,10 +58,7 @@ Key configuration options (see `values.yaml` for all options):
 | `autoscaling.enabled` | `false` | Enable HPA |
 | `ingress.enabled` | `false` | Enable Ingress (traditional API) |
 | `httproute.enabled` | `false` | Enable HTTPRoute (Gateway API) |
-| `github.appId` | `""` | GitHub App ID (required) |
-| `github.appPrivateKey` | `""` | GitHub App Private Key (required) |
-| `github.existingSecret` | `""` | Use an existing secret for credentials |
-| `github.appName` | `"default"` | GitHub App name for env-configured app |
+| `github.apps` | `{}` | Map of GitHub App configs (appId, existingSecret, secretPrivateKeyKey) |
 
 ## Ingress & Routing
 
@@ -74,7 +66,8 @@ Key configuration options (see `values.yaml` for all options):
 
 ```bash
 helm install github-sts . \
-  --set github.existingSecret="github-sts-credentials" \
+  --set github.apps.default.appId="YOUR_APP_ID" \
+  --set github.apps.default.existingSecret="my-github-app-credentials" \
   --set ingress.enabled=true \
   --set ingress.className="nginx" \
   --set ingress.hosts[0].host="github-sts.example.com"
@@ -86,7 +79,8 @@ Requires Gateway API CRDs. HTTPRoute is more powerful and flexible than Ingress.
 
 ```bash
 helm install github-sts . \
-  --set github.existingSecret="github-sts-credentials" \
+  --set github.apps.default.appId="YOUR_APP_ID" \
+  --set github.apps.default.existingSecret="my-github-app-credentials" \
   --set httproute.enabled=true \
   --set httproute.parentRefs[0].name="my-gateway" \
   --set httproute.hostnames[0]="github-sts.example.com"
@@ -96,7 +90,8 @@ helm install github-sts . \
 
 ```bash
 helm upgrade github-sts . \
-  --set github.existingSecret="github-sts-credentials"
+  --set github.apps.default.appId="YOUR_APP_ID" \
+  --set github.apps.default.existingSecret="my-github-app-credentials"
 ```
 
 ## Uninstall

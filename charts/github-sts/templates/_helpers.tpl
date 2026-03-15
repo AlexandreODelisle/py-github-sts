@@ -77,21 +77,10 @@ Return the proper image name.
 {{- end }}
 
 {{/*
-Return true if GitHub credentials are configured (either via existingSecret or inline values).
+Return true if at least one GitHub App is configured.
 */}}
-{{- define "github-sts.hasCredentials" -}}
-{{- if or .Values.github.existingSecret (and .Values.github.appId .Values.github.appPrivateKey) -}}
+{{- define "github-sts.hasApps" -}}
+{{- if .Values.github.apps -}}
 true
-{{- end -}}
-{{- end }}
-
-{{/*
-Return the name of the credentials secret.
-*/}}
-{{- define "github-sts.credentialsSecretName" -}}
-{{- if .Values.github.existingSecret -}}
-{{- .Values.github.existingSecret }}
-{{- else -}}
-{{- include "github-sts.fullname" . }}-credentials
 {{- end -}}
 {{- end }}

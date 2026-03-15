@@ -53,3 +53,12 @@ data:
       rate_limit_poll_interval_seconds: {{ .Values.metrics.rateLimitPoll.intervalSeconds }}
       reachability_probe_enabled: {{ .Values.metrics.reachabilityProbe.enabled }}
       reachability_probe_interval_seconds: {{ .Values.metrics.reachabilityProbe.intervalSeconds }}
+
+    {{- if .Values.github.apps }}
+    apps:
+      {{- range $appName, $appConfig := .Values.github.apps }}
+      {{ $appName }}:
+        app_id: {{ $appConfig.appId | int }}
+        private_key_path: {{ printf "/etc/github-sts/apps/%s/%s" $appName ($appConfig.secretPrivateKeyKey | default "github-app-private-key") | quote }}
+      {{- end }}
+    {{- end }}
