@@ -84,14 +84,14 @@ class GitHubAppTokenProvider:
                         installation_id = resp.json()["id"]
                         _installation_id_cache[id_cache_key] = installation_id
                         metrics.GITHUB_API_CALLS.labels(
-                            endpoint="get_installation", result="ok"
+                            app=self._app_name, endpoint="get_installation", result="ok"
                         ).inc()
                         return installation_id
                 except httpx.HTTPError:
                     continue
 
         metrics.GITHUB_API_CALLS.labels(
-            endpoint="get_installation", result="not_found"
+            app=self._app_name, endpoint="get_installation", result="not_found"
         ).inc()
         raise ValueError(
             f"GitHub App {self._app_name!r} not installed for scope {scope!r}"
@@ -152,9 +152,9 @@ class GitHubAppTokenProvider:
         _installation_token_cache[cache_key] = (token, expires_epoch)
 
         perm_str = ",".join(f"{k}:{v}" for k, v in (permissions or {}).items())
-        metrics.GITHUB_TOKEN_ISSUED.labels(scope=scope, permissions=perm_str).inc()
+        metrics.GITHUB_TOKEN_ISSUED.labels(app=self._app_name, scope=scope, permissions=perm_str).inc()
         metrics.GITHUB_API_CALLS.labels(
-            endpoint="create_installation_token", result="ok"
+            app=self._app_name, endpoint="create_installation_token", result="ok"
         ).inc()
 
         # SECURITY: Never log token values — only metadata (app, scope, permissions)

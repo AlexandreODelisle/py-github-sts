@@ -228,26 +228,26 @@ podMonitor:
   # -- Honor labels
   honorLabels: false
 
-# -- GitHub App credentials (required)
-# Provide credentials via existingSecret or inline appId + appPrivateKey.
-# If neither is set, the chart renders without credential env vars (useful for linting).
+# -- GitHub App configuration (required)
+# Each entry under apps is a GitHub App identified by name.
+# The app name is used in policy paths: {policy.basePath}/{appName}/{identity}.sts.yaml
+# Each app's private key must be stored in an existing Kubernetes Secret.
+# For a single-app deployment, define one entry (e.g. "default").
 github:
-  # -- GitHub App ID
-  appId: ""
-  # -- GitHub App private key (PEM format, multiline)
-  # appPrivateKey: |
-  #   -----BEGIN RSA PRIVATE KEY-----
-  #   <key content>
-  #   -----END RSA PRIVATE KEY-----
-  appPrivateKey: ""
-  # -- GitHub App name
-  appName: "default"
-  # -- Use an existing secret instead of creating one
-  existingSecret: ""
-  # -- Key in existing secret for app ID
-  secretAppIdKey: "github-app-id"
-  # -- Key in existing secret for private key
-  secretPrivateKeyKey: "github-app-private-key"
+  # -- GitHub Apps map. At least one app must be configured.
+  # apps:
+  #   default:
+  #     # -- GitHub App ID (required)
+  #     appId: "12345"
+  #     # -- Name of an existing Secret containing the private key (required)
+  #     existingSecret: "my-github-app-credentials"
+  #     # -- Key in the secret that holds the private key PEM (default: "github-app-private-key")
+  #     secretPrivateKeyKey: "github-app-private-key"
+  #
+  #   another-app:
+  #     appId: "67890"
+  #     existingSecret: "another-app-github-credentials"
+  apps: {}
 
 # -- Additional pod annotations
 podAnnotations: {}
