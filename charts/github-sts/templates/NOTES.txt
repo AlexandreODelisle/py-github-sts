@@ -35,10 +35,16 @@ Access the application via port-forward:
 
 {{- end }}
 
-{{- if and (not .Values.github.appId) (not .Values.github.existingSecret) }}
+{{- if not .Values.github.apps }}
 
-WARNING: No GitHub App credentials configured!
-  Set github.appId and github.appPrivateKey, or provide github.existingSecret.
+WARNING: No GitHub Apps configured!
+  Configure at least one app under github.apps with appId and existingSecret.
+  Example:
+    github:
+      apps:
+        default:
+          appId: "12345"
+          existingSecret: "my-github-app-credentials"
 {{- end }}
 
 {{- if .Values.serviceMonitor.enabled }}

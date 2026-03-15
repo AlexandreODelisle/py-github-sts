@@ -58,7 +58,7 @@ data:
     apps:
       {{- range $appName, $appConfig := .Values.github.apps }}
       {{ $appName }}:
-        app_id: {{ $appConfig.appId }}
-        private_key_path: /etc/github-sts/apps/{{ $appName }}/{{ $appConfig.secretPrivateKeyKey | default "github-app-private-key" }}
+        app_id: {{ $appConfig.appId | int }}
+        private_key_path: {{ printf "/etc/github-sts/apps/%s/%s" $appName ($appConfig.secretPrivateKeyKey | default "github-app-private-key") | quote }}
       {{- end }}
     {{- end }}

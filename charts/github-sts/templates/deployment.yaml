@@ -15,7 +15,6 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -45,20 +44,6 @@ spec:
           env:
             - name: PYGITHUBSTS_CONFIG_PATH
               value: "/etc/github-sts/config.yaml"
-            - name: PYGITHUBSTS_GITHUB_APP_NAME
-              value: {{ .Values.github.appName | quote }}
-            {{- if include "github-sts.hasCredentials" . }}
-            - name: PYGITHUBSTS_GITHUB_APP_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "github-sts.credentialsSecretName" . }}
-                  key: {{ .Values.github.secretAppIdKey | default "github-app-id" }}
-            - name: PYGITHUBSTS_GITHUB_APP_PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "github-sts.credentialsSecretName" . }}
-                  key: {{ .Values.github.secretPrivateKeyKey | default "github-app-private-key" }}
-            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
