@@ -152,7 +152,9 @@ class GitHubAppTokenProvider:
         _installation_token_cache[cache_key] = (token, expires_epoch)
 
         perm_str = ",".join(f"{k}:{v}" for k, v in (permissions or {}).items())
-        metrics.GITHUB_TOKEN_ISSUED.labels(app=self._app_name, scope=scope, permissions=perm_str).inc()
+        metrics.GITHUB_TOKEN_ISSUED.labels(
+            app=self._app_name, scope=scope, permissions=perm_str
+        ).inc()
         metrics.GITHUB_API_CALLS.labels(
             app=self._app_name, endpoint="create_installation_token", result="ok"
         ).inc()

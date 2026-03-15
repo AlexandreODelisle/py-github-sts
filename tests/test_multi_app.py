@@ -70,7 +70,9 @@ class TestPolicyLoaderMetricsAppLabel:
             mock_client = AsyncMock()
             mock_client_cls.return_value.__aenter__.return_value = mock_client
             mock_client.get = AsyncMock(
-                return_value=_make_github_response(status_code=200, text=VALID_POLICY_YAML)
+                return_value=_make_github_response(
+                    status_code=200, text=VALID_POLICY_YAML
+                )
             )
 
             before = metrics.POLICY_CACHE_MISSES.labels(app="test-app")._value.get()
@@ -100,7 +102,9 @@ class TestPolicyLoaderMetricsAppLabel:
             mock_client = AsyncMock()
             mock_client_cls.return_value.__aenter__.return_value = mock_client
             mock_client.get = AsyncMock(
-                return_value=_make_github_response(status_code=200, text=VALID_POLICY_YAML)
+                return_value=_make_github_response(
+                    status_code=200, text=VALID_POLICY_YAML
+                )
             )
             # First load populates the cache
             await loader.load("org/repo", "cached-app", "ci")
@@ -132,7 +136,9 @@ class TestPolicyLoaderMetricsAppLabel:
             mock_client = AsyncMock()
             mock_client_cls.return_value.__aenter__.return_value = mock_client
             mock_client.get = AsyncMock(
-                return_value=_make_github_response(status_code=200, text=VALID_POLICY_YAML)
+                return_value=_make_github_response(
+                    status_code=200, text=VALID_POLICY_YAML
+                )
             )
 
             before = metrics.POLICY_LOADS_TOTAL.labels(
@@ -252,16 +258,24 @@ class TestPolicyLoaderMetricsAppLabel:
             mock_client = AsyncMock()
             mock_client_cls.return_value.__aenter__.return_value = mock_client
             mock_client.get = AsyncMock(
-                return_value=_make_github_response(status_code=200, text=VALID_POLICY_YAML)
+                return_value=_make_github_response(
+                    status_code=200, text=VALID_POLICY_YAML
+                )
             )
 
-            before_alpha = metrics.POLICY_CACHE_MISSES.labels(app="app-alpha")._value.get()
-            before_beta = metrics.POLICY_CACHE_MISSES.labels(app="app-beta")._value.get()
+            before_alpha = metrics.POLICY_CACHE_MISSES.labels(
+                app="app-alpha"
+            )._value.get()
+            before_beta = metrics.POLICY_CACHE_MISSES.labels(
+                app="app-beta"
+            )._value.get()
 
             await loader.load("org/repo", "app-alpha", "ci")
             await loader.load("org/repo", "app-beta", "ci")
 
-            after_alpha = metrics.POLICY_CACHE_MISSES.labels(app="app-alpha")._value.get()
+            after_alpha = metrics.POLICY_CACHE_MISSES.labels(
+                app="app-alpha"
+            )._value.get()
             after_beta = metrics.POLICY_CACHE_MISSES.labels(app="app-beta")._value.get()
 
         assert after_alpha == before_alpha + 1, "app-alpha should have 1 cache miss"
@@ -352,5 +366,9 @@ class TestGitHubAppTokenProviderMetricsAppLabel:
                     permissions="contents:read",
                 )._value.get()
 
-        assert after_api == before_api + 1, "Expected GITHUB_API_CALLS to be incremented"
-        assert after_issued == before_issued + 1, "Expected GITHUB_TOKEN_ISSUED to be incremented"
+        assert after_api == before_api + 1, (
+            "Expected GITHUB_API_CALLS to be incremented"
+        )
+        assert after_issued == before_issued + 1, (
+            "Expected GITHUB_TOKEN_ISSUED to be incremented"
+        )

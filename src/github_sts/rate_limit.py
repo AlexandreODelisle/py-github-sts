@@ -402,7 +402,9 @@ class RateLimitPoller:
                         app=app_name, resource=resource_name
                     ).set(pct)
 
-        metrics.GITHUB_API_CALLS.labels(app=app_name, endpoint="get_rate_limit", result="ok").inc()
+        metrics.GITHUB_API_CALLS.labels(
+            app=app_name, endpoint="get_rate_limit", result="ok"
+        ).inc()
 
         logger.debug(
             "Rate limit poll complete: app=%s installation=%s",

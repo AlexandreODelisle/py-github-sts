@@ -73,11 +73,15 @@ class PolicyLoader(ABC):
         """Load and return a TrustPolicy, or None if not found."""
         ...
 
-    def _parse(self, raw_yaml: str, source: str, backend: str, app_name: str) -> TrustPolicy | None:
+    def _parse(
+        self, raw_yaml: str, source: str, backend: str, app_name: str
+    ) -> TrustPolicy | None:
         try:
             data = yaml.safe_load(raw_yaml)
             policy = TrustPolicy(**data)
-            metrics.POLICY_LOADS_TOTAL.labels(app=app_name, backend=backend, result="ok").inc()
+            metrics.POLICY_LOADS_TOTAL.labels(
+                app=app_name, backend=backend, result="ok"
+            ).inc()
             return policy
         except (yaml.YAMLError, ValidationError, TypeError) as exc:
             logger.warning("Failed to parse policy from %s: %s", source, exc)
