@@ -20,7 +20,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",  # OIDC JWT validation
     "PyJWT>=2.8.0",                       # GitHub App JWT signing
     "pyyaml>=6.0",
-    "prometheus-client>=0.20.0"
+    "prometheus-client>=0.25.0"
 ]
 
 
