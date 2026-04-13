@@ -19,7 +19,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "python-jose[cryptography]>=3.3.0",  # OIDC JWT validation
     "PyJWT>=2.8.0",                       # GitHub App JWT signing
-    "pyyaml>=6.0",
+    "pyyaml>=6.0.3",
     "prometheus-client>=0.20.0"
 ]
 
